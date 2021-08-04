@@ -30,7 +30,7 @@ Or adapt it to you need first, for example:
 You can use tshark too!
 
 ## screenshot
-![Alt text](/screenshot1.png?raw=true "Screenshot")
+![Alt text](/ntptraf2/screenshot1.png?raw=true "Screenshot")
 
 ## misc
 
