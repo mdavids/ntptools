@@ -32,7 +32,7 @@ But remember to adapt it to you need first, for example:
 * Change the interface
 * Change the filter expression
 
-You can use tshark too!
+You can use `tshark` too!
 
 ## screenshot
 ![Alt text](/ntptraf2/screenshot2.png?raw=true "Screenshot")
