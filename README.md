@@ -1,2 +1,3 @@
 # ntptools
-NTP Tools
+
+Just small collection of home grown NTP Tools.
