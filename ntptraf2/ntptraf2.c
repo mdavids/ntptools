@@ -56,7 +56,8 @@ unsigned long long int ip_packet_counter = 0; // ipv4 packet number
 unsigned long long int ip_bytes_counter = 0; // ipv4 bytes total
 unsigned long long int ipv6_packet_counter = 0; // ipv6 packet number
 unsigned long long int ipv6_bytes_counter = 0; // ipv6 bytes total
-// TODO typical IPv4 is 90 and IPv6 is 110, so how useful is this avg counter??
+// TODO typical IPv4 is 90 and IPv6 is 110 (except for mode 6 and 7),
+// so how useful is this avg counter??
 unsigned int ip_avg_bytes = 0; // ipv4 averege bytes/packet
 unsigned int ipv6_avg_bytes = 0; // ipv6 average bytes/packet
 unsigned long long int ntpv1_counter = 0; // RFC1059 NTPv1 packetcount
@@ -95,7 +96,7 @@ float bytes_sec = 0;
 int row, col;
 
 /* Defines */
-#define VERSION "0.0.1-20210803"
+#define VERSION "0.0.2-20210804"
 // https://semver.org/
 
 /* Main */
@@ -433,19 +434,38 @@ print_numbers(void) {
   else bytes_sec = 0;
 
   // do the math
-  if (tot_packet_counter > 0) { // prevent devision by  0
-    ip_percentage =
+  if (tot_packet_counter > 0) { // prevent devision by 0
+    ip_percentage =		// TODO are these checks overkill?
       ((float) ip_packet_counter / (float) tot_packet_counter) * 100;
     ipv6_percentage =
       ((float) ipv6_packet_counter / (float) tot_packet_counter) * 100;
-    server_percentage =
-      ((float) ntp_server_counter / (float) ntp_client_counter) * 100;
-
+  }
+  else {
+    ip_percentage = 0.0;
+    ipv6_percentage = 0.0;
+  };
+  if (ip_packet_counter > 0) { // prevent devision by 0
     ip_avg_bytes =
       round((float) ip_bytes_counter / (float) ip_packet_counter);
+  }
+  else {
+    ip_avg_bytes = 0.0;
+  }
+  if (ip_packet_counter > 0) { // prevent devision by 0
     ipv6_avg_bytes =
       round((float) ipv6_bytes_counter / (float) ipv6_packet_counter);
+  }
+  else {
+    ipv6_avg_bytes = 0.0;
   };
+  if (ntp_client_counter > 0) { // prevent devision by 0
+    server_percentage =		// this is possible e.g. mode 6 and 7
+      ((float) ntp_server_counter / (float) ntp_client_counter) * 100;
+  }
+  else {
+    server_percentage = 0.0;
+  };
+
   // print the new numbers on screen
   attron(COLOR_PAIR(3) | A_BOLD);
   // some spaces behind it to overwrite previous 'waiting for packets...'-text
