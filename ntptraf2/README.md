@@ -18,11 +18,16 @@ sudo apt install libncurses-dev libpcap-dev
 (and obviously gcc has to be present, the 'build-essential'-package will provide you with that)
 
 ## run
-Just do
+Just do:
+
+```
+./ntpraf2 ./ntp.pcap
+```
+or
 ```
 sudo tcpdump -i eth0 -n "udp and port 123" -p --immediate-mode -U -s110 -w - 2> /dev/null | ./ntptraf2 -
 ```
-Or adapt it to you need first, for example:
+But remember to adapt it to you need first, for example:
 
 * Change the interface
 * Change the filter expression
@@ -52,15 +57,12 @@ from IPv6 SLAAC addresses:
 ```
 tshark -r ./ntp.pcap -2 -R ipv6.dst_sa_mac -Nm -V | grep "Destination SA MAC" | sort | uniq
 ```
-
 or
 ```
 tshark -r ~/ntp.pcap -2 -R ipv6.dst_sa_mac -Nm -V | grep "Destination SA MAC" | awk '{print $4}' | awk -F\_ '{print $1}' | sort | uniq -c | sort -rn
 ```
-
 or, for some live data:
 ```
 sudo tshark -Y ipv6.dst_sa_mac -Nm -V | grep "Destination SA MAC"
 ```
-
 Etc.
