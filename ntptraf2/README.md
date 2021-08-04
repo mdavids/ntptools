@@ -42,7 +42,7 @@ You can use `tshark` too!
 Wireshark and Tshark are also great tools for peeking in NTP traffic! Here
 are some examples:
 
-Who are we sendint KoD RATE packets too?
+Who are we sending KoD RATE packets too?
 ```
 tshark -i eth0 -f 'udp and port 123' -Y ntp.refid==52:41:54:45 -Tfields -e ip.dst -e ntp.refid
 ```
