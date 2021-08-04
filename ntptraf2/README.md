@@ -9,7 +9,7 @@ Just do
 ```
 gcc -g -O2 -Wall -o ntptraf2 ntptraf2.c -lpcap -lncurses -lm
 ```
-Or run 'make'.
+Or run `make`.
  
 Linux tip: you may need this first:
 ```
