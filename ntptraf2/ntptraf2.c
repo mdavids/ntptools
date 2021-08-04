@@ -192,7 +192,8 @@ main(int argc, char * argv[]) {
   // the work is done in handle_packet
   pcap_loop(handle, 0, handle_packet, NULL);
 
-  // stop the interval (but allow for one loop, to at least get something)
+  // stop the interval (but allow for one loop,
+  // to at least get something or to print some final numbers)
   sleep(2);
   alarm(0);
   attron(COLOR_PAIR(3));
