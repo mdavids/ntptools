@@ -22,6 +22,7 @@
  *  - count IP_TTL ? Could be interesting for anycast catchment measurments
  *  - NTS (RFC8915) counters?
  *  - Better layout? Other colours?
+ *  - Reset counter butten ('r' key ?) that will reset counters to 0.
  *  - Daemonize option to turn it into a Prometheus exporter for Grafana?
  */
 
