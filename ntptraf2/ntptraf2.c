@@ -35,8 +35,6 @@
 #include <unistd.h> // contains alarm()
 #include <locale.h> // format the numbers in printf
 #include <ncurses.h>
-#include <sys/socket.h>
-#include <netinet/in.h> // internet protocol family
 #include <pcap.h>
 #include <netinet/if_ether.h> // ethernet header declarations
 
