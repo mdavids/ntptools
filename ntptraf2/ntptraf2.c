@@ -36,6 +36,7 @@
 #include <locale.h> // format the numbers in printf
 #include <ncurses.h>
 #include <pcap.h>
+#include <arpa/inet.h> // for ntohs
 #include <netinet/if_ether.h> // ethernet header declarations
 
 /* Prototypes */
