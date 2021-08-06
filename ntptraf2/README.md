@@ -30,7 +30,7 @@ sudo tcpdump -i eth0 -n "udp and port 123" -p --immediate-mode -U -s110 -w - 2> 
 But remember to adapt it to you need first, for example:
 
 * Change the interface
-* Change the filter expression
+* Change the filter expression (optionally - for additional fine tuning)
 
 You can use `tshark` too!
 
