@@ -51,7 +51,7 @@ uint16_t ethertype = 0;
 unsigned char ipttl = 0;
 unsigned char ipv6hlim = 0;
 /* Defines */
-#define VERSION "0.0.1-20210806"
+#define VERSION "0.0.1-20210807"
 // https://semver.org/
 
 /* Main */
@@ -142,7 +142,7 @@ handle_packet(u_char * args,
     ipv6hlim = 0;
     break;
   case ETHERTYPE_IPV6:
-    ipv6hlim = packet[8];
+    ipv6hlim = packet[7];
     ipttl = 0;
     break;
     // no default: needed
