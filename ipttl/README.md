@@ -30,6 +30,9 @@ But remember to adapt it to you need first, for example:
 
 If you do `doit.sh`, you get all the steps in one go.
 
+## example plot
+![Alt text](/ipttl/example.png?raw=true "Example")
+
 ## rationale
 
 This was a a little experiment with a twofold goal. First we would like to
