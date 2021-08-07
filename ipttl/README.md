@@ -49,7 +49,7 @@ perhaps.
 
 ## future
 
-The next step we foresee is to turn this into some sort of `dnstop` or
+The next step we foresee is to turn this into some sort of `dnstop`- or
 `dns-flood-detector`-like tool. One that especially can trigger if there
 is an anomaly due to an alledged DDoS. If many queries hit us from a
 spoofed source address (victom), as part of a DoS-attempt, it is
