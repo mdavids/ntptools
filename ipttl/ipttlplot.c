@@ -27,7 +27,6 @@
 
 /* Libraries */
 #include <stdlib.h> // exit()
-#include <signal.h> // for SIG handler
 #include <arpa/inet.h> // for ntohs
 #include <pcap.h>
 #include <netinet/if_ether.h> // ethernet header declarations
@@ -38,7 +37,6 @@ void handle_packet(u_char * ,
     const u_char * );
 int center(int row, char * title);
 void print_output(void);
-void sigintHandler(int sig);
 
 /* Global Variables */
 pcap_t * handle;
@@ -101,21 +99,12 @@ main(int argc, char * argv[]) {
   // TODO doesn't help with restoring proper output at end of program
   //savetty();
 
-  // own SIGNINT signal handler
-  signal(SIGINT, sigintHandler);
-
   // pcap loop to set our callback function
   // the work is done in handle_packet
   pcap_loop(handle, 0, handle_packet, NULL);
 
   pcap_close(handle);
   return (EXIT_SUCCESS);
-}
-
-void
-sigintHandler(int sig) {
-  pcap_close(handle);
-  exit(EXIT_SUCCESS);
 }
 
 /* Handle packet */
