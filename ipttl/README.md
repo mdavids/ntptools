@@ -31,7 +31,7 @@ But remember to adapt it to you need first, for example:
 If you do `doit.sh`, you get all the steps in one go.
 
 ## example plot
-![Alt text](/ipttl/example.png?raw=true "Example")
+![Alt text](/ipttl/exampleplot.png?raw=true "Example")
 
 ## rationale
 
