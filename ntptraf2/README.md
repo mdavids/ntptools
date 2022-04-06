@@ -32,7 +32,7 @@ But remember to adapt it to you need first, for example:
 * Change the interface
 * Change the filter expression (optionally - for additional fine tuning)
 
-You can use `tshark` too!
+Instead of `tcpdump`, you can use `tshark` as well!
 
 ## screenshot
 ![Alt text](/ntptraf2/screenshot2.png?raw=true "Screenshot")
