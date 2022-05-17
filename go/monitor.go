@@ -4,41 +4,51 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"strconv"
 
 	"github.com/beevik/ntp"
 )
 
 var emptyTime time.Time
 
-var usage = `Usage: gettime [HOST]
-Get the time reported by the NTP server HOST.`
+var usage = `Usage: monitor <host> [<stratum>]
+Default expected stratum is 1, but this can optionally be changed.`
 
 func main() {
 
-	args := os.Args[1:]
+	var stratumopt int
 
-        if len(args) < 1 {
+        if len(os.Args[1:]) < 1 {
                 fmt.Println(usage)
                 os.Exit(0)
         }
-	TestQuery(args[0])
+        if len(os.Args[1:]) ==  2 {
+        	stratopt, err := strconv.Atoi(os.Args[2])
+        	if err != nil {
+        		panic(err)
+        	}
+        	stratumopt = stratopt
+	} else {
+		stratumopt = 1
+	}
+	TestQuery(os.Args[1], uint8(stratumopt))
 }
 
-func TestQuery(host string) {
-	fmt.Printf("\n\n[%s] ----------------------\n", host)
-	fmt.Printf("[%s] NTP protocol version %d\n", host, 4)
-
+func TestQuery(host string, stratum uint8) {
+	//fmt.Printf("[%s] NTP protocol version %d\n", host, 4)
+/*
+	fmt.Printf("[%s] Stratcheck: %d\n", host, stratum)
+	fmt.Printf("[%s] ----------------------\n", host)
+*/
 	r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: 4})
 	if err != nil {
-		fmt.Printf("Time could not be get: %v\n", err.Error())
+		fmt.Printf("[%s] %v Error: Time could not be get: %v\n", host, time.Now(), err.Error())
 		os.Exit(1)
 	}
-
+/*
 	fmt.Printf("[%s]  LocalTime: %v\n", host, time.Now())
-	//fmt.Printf("[%s]  LocalTime+Offset: %v\n", host, time.Now().Add(r.ClockOffset))
 	fmt.Printf("[%s]   XmitTime: %v\n", host, r.Time)
 	fmt.Printf("[%s]    RefTime: %v\n", host, r.ReferenceTime)
-	//MD kan niet fmt.Printf("[%s]   OrigTime: %v\n", host, r.OriginTime)	
 	fmt.Printf("[%s]        RTT: %v\n", host, r.RTT)
 	fmt.Printf("[%s]     Offset: %v\n", host, r.ClockOffset)
 	fmt.Printf("[%s]       Poll: %v\n", host, r.Poll)
@@ -51,14 +61,20 @@ func TestQuery(host string) {
 	fmt.Printf("[%s]   MinError: %v\n", host, r.MinError)
 	fmt.Printf("[%s]       Leap: %v\n", host, r.Leap)
 	fmt.Printf("[%s]   KissCode: %v\n", host, stringOrEmpty(r.KissCode))
-	
+*/	
 	err = r.Validate()
+	// https://github.com/beevik/ntp/blob/master/ntp.go#L245
+
 	if err != nil {
-		fmt.Printf("\nError: %v\n", err.Error())
+		fmt.Printf("[%s] %v Error: %v\n", host, time.Now(), err.Error())
 		os.Exit(1)
+	} else {	
+		if r.Stratum != stratum {
+			fmt.Printf("[%s] %v Error: Stratum mismatch, expected: %d and received: %v\n", host, time.Now(), stratum, r.Stratum)
+			os.Exit(1)
+		}
 	}
-	
-	fmt.Printf("\n\n")
+	//fmt.Printf("\n\n")
 }
 
 func stringOrEmpty(s string) string {

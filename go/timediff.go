@@ -1,3 +1,8 @@
+//
+// M. Davids
+// SIDN Labs
+// Credits: https://github.com/beevik/ntp/blob/master/ntp_test.go#L51
+//
 package main
 
 import (
@@ -7,10 +12,6 @@ import (
 
 	"github.com/beevik/ntp"
 )
-
-//const (
-//	host  = "ntp4.linocomm.net" // ntp.vsl.nl, time1.ea.int of pool.ntp.org enz.
-//)
 
 var emptyTime time.Time
 
@@ -40,4 +41,3 @@ func TestTime(host string) {
 	fmt.Printf("~True Time %v\n", t)
 	fmt.Printf("Offset %v\n", t.Sub(now))
 }
-
