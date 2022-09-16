@@ -76,7 +76,7 @@ func TestQuery(host string, stratum uint8, verbose bool) {
 		// 100000000 nanoseconds is 0.1 second
 		if (r.ClockOffset > 100000000) || (r.ClockOffset < -100000000) {
 		//if (r.ClockOffset > 10000) || (r.ClockOffset < -10000) { // test values
-			fmt.Printf("    Result: Error - oOffset out of bounds\n\n")
+			fmt.Printf("    Result: Error - offset out of bounds\n\n")
 			os.Exit(4) // exit 2 for this particular case
 		}
 	}
