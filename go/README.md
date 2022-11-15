@@ -1,6 +1,6 @@
 # Go
 
-Just small collection of home grown NTP tools written in Go.
+Just a small collection of home grown NTP tools written in Go.
 
 Most useful are:
 
