@@ -9,4 +9,6 @@ Most useful are:
  * ntpdetail
  * timediff2
 
+> [!TIP]
+> To build doing a `go mod init <project_name>` and a `go mod tidy` first, might come in handy!
 
