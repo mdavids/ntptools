@@ -10,5 +10,5 @@ Most useful are:
  * timediff2
 
 > [!TIP]
-> To build doing a `go mod init <project_name>` and a `go mod tidy` first, might come in handy!
+> To build, doing a `go mod init <project_name>` and a `go mod tidy` first, might come in handy!
 
