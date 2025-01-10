@@ -63,7 +63,7 @@ func TestQuery(host string, stratum uint8, verbose bool) {
 	err = r.Validate()
 	// Validate checks if the response is valid for the purposes of time synchronization.
 	// Will log KoD errors among a couple of other things, see
-	// https://github.com/beevik/ntp/blob/master/ntp.go#L245	
+	// https://github.com/beevik/ntp/blob/main/ntp.go#L378	
 
 	if err != nil {
 		fmt.Printf("    Result: Error - %v\n\n", err.Error())
