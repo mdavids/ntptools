@@ -7,6 +7,7 @@ set arrow from 128, graph 0 to 128, graph 1 nohead lw 2 lc rgb 'red'
 # Network devices like routers
 set arrow from 255, graph 0 to 255, graph 1 nohead lw 2 lc rgb 'red'
 
+set xrange [0:255] 
 set xtics 10
 set logscale y
 
