@@ -10,8 +10,8 @@ import (
 
 var emptyTime time.Time
 
-var usage = `Usage: gettime [HOST]
-Get the time reported by the NTP server HOST.`
+var usage = `Usage: ntpdetail [HOST]
+Get the details reported by the NTP server HOST.`
 
 func main() {
 
