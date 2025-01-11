@@ -4,7 +4,7 @@ package main
 // Work in progres!
 //
 // Is ntpdetail met kleine aanpassingen, zodat het werkt met NTS - is althans de bedoeling
-//	TODO: checken of ntpversion echt anders is met huidige code (via wireshark)
+//	TODO: probably quite a few things as this is work in progress
 //
 import (
 	"fmt"
