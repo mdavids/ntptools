@@ -7,6 +7,7 @@ set arrow from 128, graph 0 to 128, graph 1 nohead lw 2 lc rgb 'red'
 # Network devices like routers
 set arrow from 255, graph 0 to 255, graph 1 nohead lw 2 lc rgb 'red'
 
+set xtics 10
 set logscale y
 
 plot 'out.dat' with impulses lw 2
