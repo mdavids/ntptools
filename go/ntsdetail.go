@@ -5,6 +5,7 @@ package main
 //
 // Is ntpdetail met kleine aanpassingen, zodat het werkt met NTS - is althans de bedoeling
 //	TODO: probably quite a few things as this is work in progress
+//		fails for ntp.netnod.se with: "NTS session could not be established: key exchange failure"
 //
 import (
 	"fmt"
