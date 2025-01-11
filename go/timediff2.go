@@ -10,8 +10,8 @@ import (
 
 var emptyTime time.Time
 
-var usage = `Usage: gettime [HOST]
-Get the time reported by the NTP server HOST.
+var usage = `Usage: timediff2 [HOST]
+Get the time difference reported by the NTP server HOST.
 Exit with error if offset is too high.`
 
 func main() {
