@@ -59,7 +59,7 @@ func TestQuery(host string) {
 
         fmt.Printf("\n\n[%s] ----------------------\n", host)
         //fmt.Printf("[%s] NTP version: NTPv%d\n", host, ntpversion)
-        fmt.Printf("[%s]    Resolver: [%s] :%s\n", host, ntphost, ntpport)
+        fmt.Printf("[%s]    Resolver: [%s]:%s\n", host, ntphost, ntpport)
 	// oud, uit ntpdetail: 
 	//r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: ntpversion})
 	// nieuw, zonder opties:
