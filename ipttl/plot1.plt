@@ -1,10 +1,10 @@
 set title "IP TTLs"
 
-# Linux
+# Linux/MAC OSX systems
 set arrow from 64, graph 0 to 64, graph 1 nohead lw 2 lc rgb 'red'
-# Windows
+# Windows systems
 set arrow from 128, graph 0 to 128, graph 1 nohead lw 2 lc rgb 'red'
-# Old Linux
+# Network devices like routers
 set arrow from 255, graph 0 to 255, graph 1 nohead lw 2 lc rgb 'red'
 
 set logscale y
