@@ -57,10 +57,9 @@ func TestQuery(host string) {
                 os.Exit(1)
         }
 
-	fmt.Printf("\n\n[%s] ----------------------\n", host)
-//	fmt.Printf("[%s] NTP protocol version %d\n", host, ntpversion)
-	fmt.Printf("[%s] NTP host and port [%s]:%s\n", host, ntphost, ntpport)
-	fmt.Printf("[%s] ----------------------\n", host)
+        fmt.Printf("\n\n[%s] ----------------------\n", host)
+        //fmt.Printf("[%s] NTP version: NTPv%d\n", host, ntpversion)
+        fmt.Printf("[%s]    Resolver: [%s] :%s\n", host, ntphost, ntpport)
 	// oud, uit ntpdetail: 
 	//r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: ntpversion})
 	// nieuw, zonder opties:
