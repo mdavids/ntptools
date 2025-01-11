@@ -15,8 +15,8 @@ import (
 
 var emptyTime time.Time
 
-var usage = `Usage: gettime [HOST]
-Get the time reported by the NTP server HOST.`
+var usage = `Usage: timediff [HOST]
+Get the time difference reported by the NTP server HOST.`
 
 func main() {
 
