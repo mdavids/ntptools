@@ -42,9 +42,9 @@ func TestQuery(host string, stratum uint8, verbose bool) {
                 os.Exit(1)
         }
 
-	fmt.Printf("\n    Server: %s\n", host)
+	fmt.Printf("\nNTS server: %s\n", host)
 
-	r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
+	r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
 	if err != nil {
 		fmt.Printf("    Result: Error - %v\n\n", err.Error())
 		os.Exit(1)
