@@ -5,7 +5,6 @@ package main
 //
 // Is ntpdetail met kleine aanpassingen, zodat het werkt met NTS - is althans de bedoeling
 //	TODO: probably quite a few things as this is work in progress
-//		No support for NTPv4 Server Negotiation yet - Netnod does this, so ntp.nednod.net does not work.
 //
 import (
 	"fmt"
@@ -18,7 +17,6 @@ import (
 )
 
 var emptyTime time.Time
-var ntpversion int=4
 
 var usage = `Usage: ntsdetail [HOST]
 Get the time reported by the NTS server HOST.`
@@ -34,18 +32,9 @@ func main() {
 	TestQuery(args[0])
 }
 
-func customResolver(addr string) string {
-	return "94.198.159.15:123"
-}
-
 func TestQuery(host string) {
 	
 	session, err := nts.NewSession(host)
-	// met opties:
-	//opt := &nts.SessionOptions{
-	//	Resolver: customResolver,
-	//}
-	//session, err := nts.NewSessionWithOptions(host, opt)
 	if err != nil {
 		fmt.Printf("NTS session could not be established: %v\n", err.Error())
                 os.Exit(1)
@@ -58,24 +47,15 @@ func TestQuery(host string) {
         }
 
         fmt.Printf("\n\n[%s] ----------------------\n", host)
-        //fmt.Printf("[%s] NTP version: NTPv%d\n", host, ntpversion)
         fmt.Printf("[%s]    Resolver: [%s]:%s\n", host, ntphost, ntpport)
-	// oud, uit ntpdetail: 
-	//r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: ntpversion})
-	// nieuw, zonder opties:
 	r, err := session.Query();
-	// nieuw, met opties:
-	//opt := &ntp.QueryOptions{ Version: ntpversion}
-	//r, err :=session.QueryWithOptions(opt)
 	if err != nil {
 		fmt.Printf("Time could not be get: %v\n", err.Error())
 		os.Exit(1)
 	}
 	fmt.Printf("[%s]  LocalTime: %v\n", host, time.Now())
-	//fmt.Printf("[%s]  LocalTime+Offset: %v\n", host, time.Now().Add(r.ClockOffset))
 	fmt.Printf("[%s]   XmitTime: %v\n", host, r.Time)
 	fmt.Printf("[%s]    RefTime: %v\n", host, r.ReferenceTime)
-	//MD kan niet fmt.Printf("[%s]   OrigTime: %v\n", host, r.OriginTime)
 	fmt.Printf("[%s]        RTT: %v\n", host, r.RTT)
 	fmt.Printf("[%s]     Offset: %v\n", host, r.ClockOffset)
 	fmt.Printf("[%s]       Poll: %v\n", host, r.Poll)
