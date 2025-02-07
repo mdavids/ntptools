@@ -47,7 +47,7 @@ func TestQuery(host string) {
         }
 
         fmt.Printf("\n\n[%s] ----------------------\n", host)
-        fmt.Printf("[%s]    Resolver: [%s]:%s\n", host, ntphost, ntpport)
+        fmt.Printf("[%s]   Resolver: [%s]:%s\n", host, ntphost, ntpport)
 	r, err := session.Query();
 	if err != nil {
 		fmt.Printf("Time could not be get: %v\n", err.Error())
