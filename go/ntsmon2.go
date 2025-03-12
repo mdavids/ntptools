@@ -119,7 +119,10 @@ func RefidToString(refID uint32) string {
 		if unicode.IsPrint(c) {
 			result = append(result, c)
 		}
-	}
+	
 
 	return string(result)
 }
+
+// TODO RefidToIPv4() - see monitor2.go
+	
