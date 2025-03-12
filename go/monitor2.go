@@ -6,6 +6,8 @@ import (
 	"time"
 	"unicode"
 	"flag"
+	"net"
+	"encoding/binary"
 
 	"github.com/beevik/ntp"
 )
@@ -50,7 +52,7 @@ func TestQuery(host string, stratum uint8, verbose bool) {
 		if r.Stratum == 1 {
 			fmt.Printf("     RefID: %v\n", RefidToString(r.ReferenceID))
 		} else {
-			fmt.Printf("     RefID: 0x%08X\n", r.ReferenceID)
+			fmt.Printf("     RefID: %v\n", RefidToIPv4(r.ReferenceID))
 		}
 		fmt.Printf(" RootDelay: %v\n", r.RootDelay)
 		fmt.Printf("  RootDisp: %v\n", r.RootDispersion)
@@ -106,4 +108,10 @@ func RefidToString(refID uint32) string {
 	}
 
 	return string(result)
+}
+
+func RefidToIPv4(refID uint32) string {
+	ip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(ip, refID)
+	return ip.String()
 }
