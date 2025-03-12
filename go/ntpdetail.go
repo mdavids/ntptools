@@ -30,7 +30,7 @@ func TestQuery(host string) {
 
 	r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: 4})
 	if err != nil {
-		fmt.Printf("Time could not be get: %v\n", err.Error())
+		fmt.Printf("Failed to get time: %v\n", err.Error())
 		os.Exit(1)
 	}
 
