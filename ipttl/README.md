@@ -1,7 +1,7 @@
 # IP TTL
 IP TTL Statistics (with a focus on NTP traffic)
 
-A litle (**experimental**) tool that dumps IP TTL (or it's IPv6 equivalent Hop Limit)
+A little (**experimental**) tool that dumps IP TTL (or it's IPv6 equivalent Hop Limit)
 from a tcpdump output, or a pcap-file and turns it into a gnuplot.
 
 ## build
