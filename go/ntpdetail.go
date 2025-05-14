@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"math"
 
 	"github.com/beevik/ntp"
 )
@@ -41,8 +42,8 @@ func TestQuery(host string) {
 	//MD kan niet fmt.Printf("[%s]   OrigTime: %v\n", host, r.OriginTime)	
 	fmt.Printf("[%s]        RTT: %v\n", host, r.RTT)
 	fmt.Printf("[%s]     Offset: %v\n", host, r.ClockOffset)
-	fmt.Printf("[%s]       Poll: %v\n", host, r.Poll)
-	fmt.Printf("[%s]  Precision: %v\n", host, r.Precision)
+	fmt.Printf("[%s]       Poll: %v (%v)\n", host, fromInterval(r.Poll),r.Poll)
+	fmt.Printf("[%s]  Precision: %v (%v)\n", host, fromInterval(r.Precision),r.Precision)
 	fmt.Printf("[%s]    Stratum: %v\n", host, r.Stratum)
 	fmt.Printf("[%s]      RefID: 0x%08x\n", host, r.ReferenceID)
 	fmt.Printf("[%s]  RootDelay: %v\n", host, r.RootDelay)
@@ -66,4 +67,12 @@ func stringOrEmpty(s string) string {
 		return "<empty>"
 	}
 	return s
+}
+
+// Poor man's method to get h.Poll back
+// Probably not the recommended best way - but it works for now.
+func fromInterval(d time.Duration) int8 {
+	seconds := d.Seconds()
+	exp := math.Log2(seconds)
+	return int8(math.Round(exp))
 }
