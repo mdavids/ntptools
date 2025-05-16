@@ -38,7 +38,7 @@ func TestQuery(host string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("[%s]  LocalTime: %v\n", host, time.Now())
+	fmt.Printf("[%s]  LocalTime: %v\n", host, time.Now()) // including monotonic clock info
 	//fmt.Printf("[%s]  LocalTime+Offset: %v\n", host, time.Now().Add(r.ClockOffset))
 	fmt.Printf("[%s]   XmitTime: %v\n", host, r.Time)
 	fmt.Printf("[%s]    RefTime: %v\n", host, r.ReferenceTime)
