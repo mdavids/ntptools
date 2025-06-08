@@ -451,7 +451,7 @@ print_numbers(void) {
   else {
     ip_avg_bytes = 0.0;
   }
-  if (ip_packet_counter > 0) { // prevent devision by 0
+  if (ipv6_packet_counter > 0) { // prevent devision by 0
     ipv6_avg_bytes =
       round((float) ipv6_bytes_counter / (float) ipv6_packet_counter);
   }
