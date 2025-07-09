@@ -61,6 +61,8 @@ func TestQuery(host string) {
         } else {
                 fmt.Printf("[%s]      RefID: %v (0x%08x)\n", host, RefidToIPv4(r.ReferenceID), r.ReferenceID)
         }
+        //beevik/ntp has this too - either missed it or it was added later ;-)
+        //fmt.Printf("[%s]      RefID: %s (0x%08x)\n", host, r.ReferenceString(), r.ReferenceID)
         fmt.Printf("[%s]  RootDelay: %v\n", host, r.RootDelay)
         fmt.Printf("[%s]   RootDisp: %v\n", host, r.RootDispersion)
         fmt.Printf("[%s]   RootDist: %v\n", host, r.RootDistance)
