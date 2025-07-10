@@ -13,6 +13,12 @@ import (
 	"time"
 )
 
+// NTP constants
+const (
+	NtpEpochOffset = 2208988800 // Offset between NTP epoch (1 Jan 1900) and Unix epoch (1 Jan 1970) in seconds
+	NtpPacketSize  = 48         // Standard NTP packet size in bytes
+)
+
 type Config struct {
 	Port             int    `json:"port"`
 	Debug            bool   `json:"debug"`
@@ -81,7 +87,7 @@ func loadConfig(path string) Config {
 
 func refIDFromType(typ string) uint32 {
         switch typ {
-        case "XLOL":
+        case "XFUN":
                 return binary.BigEndian.Uint32([]byte("XLOL"))
         case "RATE":
                 return binary.BigEndian.Uint32([]byte("RATE"))
@@ -96,7 +102,7 @@ func ntpTimestampParts(t time.Time) (sec uint32, frac uint32) {
 	unixSecs := t.Unix()
 	nanos := t.Nanosecond()
 	fracSecs := float64(nanos) / 1e9
-	sec = uint32(unixSecs + 2208988800)
+	sec = uint32(unixSecs + NtpEpochOffset)
 	frac = uint32(fracSecs * math.Pow(2, 32))
 	return
 }
@@ -117,6 +123,7 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 	refTime := now.Add(-time.Duration(refOffset) * time.Second)
 	refSec, refFrac := ntpTimestampParts(refTime)
 
+	//rxTime := now	
 	rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
 	rxSec, rxFrac := ntpTimestampParts(rxTime)
 
@@ -149,7 +156,7 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 		TxTimeFrac:   nowFrac,
 	}
 
-	buf := make([]byte, 48)
+	buf := make([]byte, NtpPacketSize)
 	buf[0] = packet.Settings
 	buf[1] = packet.Stratum
 	buf[2] = byte(packet.Poll)
@@ -172,6 +179,10 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 func main() {
 	configPath := flag.String("config", "config.json", "Pad naar configbestand")
 	flag.Parse()
+
+	// Seed de random getallengenerator
+	rand.Seed(time.Now().UnixNano())
+
 	cfg := loadConfig(*configPath)
 
 	timeFormat := "2006-01-02 15:04:05 MST"
@@ -189,15 +200,15 @@ func main() {
 	log.Println("Fake NTP-server gestart op poort", addr.Port)
 
 	for {
-		buf := make([]byte, 48)
+		buf := make([]byte, NtpPacketSize)
 		n, clientAddr, err := conn.ReadFromUDP(buf)
-		if err != nil || n < 48 {
+		if err != nil || n < NtpPacketSize {
 			continue
 		}
 
 		if cfg.Debug {
 			version, txSec, txFrac := parseClientInfo(buf)
-			txFloat := float64(txSec-2208988800) + float64(txFrac)/math.Pow(2, 32)
+			txFloat := float64(txSec-NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
 			txUnixSec := int64(txFloat)
 			txTime := time.Unix(txUnixSec, int64((txFloat-float64(txUnixSec))*1e9)).UTC().Format(timeFormat)
 			fmt.Printf("Verzoek van %s\n  - NTP versie: %d\n  - Client transmit timestamp: %s\n",
