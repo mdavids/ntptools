@@ -1,0 +1,14 @@
+{
+  "port": 123,
+  "debug": true,
+  "min_poll": 6,
+  "max_poll": 10,
+  "min_precision": -29,
+  "max_precision": 5,
+  "max_ref_time_offset": 3636,
+  "ref_id_type": "XLOL",
+  "min_stratum": 1,
+  "max_stratum": 15,
+  "leap_indicator": 0,
+  "version_number": 4
+}
