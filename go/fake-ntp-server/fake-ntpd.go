@@ -88,7 +88,7 @@ func loadConfig(path string) Config {
 func refIDFromType(typ string) uint32 {
         switch typ {
         case "XFUN":
-                return binary.BigEndian.Uint32([]byte("XLOL"))
+                return binary.BigEndian.Uint32([]byte("XFUN"))
         case "RATE":
                 return binary.BigEndian.Uint32([]byte("RATE"))
         case "DENY":
