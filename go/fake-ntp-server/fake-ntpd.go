@@ -117,7 +117,7 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 	refTime := now.Add(-time.Duration(refOffset) * time.Second)
 	refSec, refFrac := ntpTimestampParts(refTime)
 
-	rxTime := now	// rxTime := now.Add(-5 * time.Second) // Simuleer ontvangstmoment iets eerder
+	rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
 	rxSec, rxFrac := ntpTimestampParts(rxTime)
 
 	li := uint8(cfg.LeapIndicator & 0x03)
@@ -137,7 +137,7 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 		Poll:         poll,
 		Precision:    precision,
 		RootDelay:    0,	// RootDelay:    rand.Uint32(),
-		RootDisp:     0,	// RootDisp:     rand.Uint32(),
+		RootDisp:     1,	// RootDisp:     rand.Uint32(),
 		RefID:        refIDFromType(cfg.RefIDType),
 		RefTimeSec:   refSec,
 		RefTimeFrac:  refFrac,
