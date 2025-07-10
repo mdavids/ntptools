@@ -107,12 +107,13 @@ func ntpTimestampParts(t time.Time) (sec uint32, frac uint32) {
 	return
 }
 
-func parseClientInfo(req []byte) (version uint8, txSec uint32, txFrac uint32) {
-	settings := req[0]
-	version = (settings >> 3) & 0x07
-	txSec = binary.BigEndian.Uint32(req[40:44])
-	txFrac = binary.BigEndian.Uint32(req[44:48])
-	return
+func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFrac uint32) {
+        settings := req[0]
+        version = (settings >> 3) & 0x07
+        mode = settings & 0x07
+        txSec = binary.BigEndian.Uint32(req[40:44])
+        txFrac = binary.BigEndian.Uint32(req[44:48])
+        return
 }
 
 func createFakeNTPResponse(req []byte, cfg Config) []byte {
@@ -206,8 +207,15 @@ func main() {
 			continue
 		}
 
+		version, mode, txSec, txFrac := parseClientInfo(buf)
+		if mode != 3 {
+			if cfg.Debug {
+				fmt.Printf("Genegeerd verzoek van %s met mode %d\n", clientAddr.IP.String(), mode)
+			}
+			continue
+		}
+
 		if cfg.Debug {
-			version, txSec, txFrac := parseClientInfo(buf)
 			txFloat := float64(txSec-NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
 			txUnixSec := int64(txFloat)
 			txTime := time.Unix(txUnixSec, int64((txFloat-float64(txUnixSec))*1e9)).UTC().Format(timeFormat)
