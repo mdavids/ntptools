@@ -52,6 +52,8 @@ type NTPPacket struct {
 	TxTimeFrac   uint32
 }
 
+var nowRx time.Time
+
 func loadConfig(path string) Config {
 	file, err := os.Open(path)
 	if err != nil {
@@ -85,15 +87,13 @@ func loadConfig(path string) Config {
 	return config
 }
 
-func refIDFromType(typ string) uint32 {
-        switch typ {
-        case "XFUN":
-                return binary.BigEndian.Uint32([]byte("XFUN"))
-        case "RATE":
-                return binary.BigEndian.Uint32([]byte("RATE"))
-        case "DENY":
-                return binary.BigEndian.Uint32([]byte("DENY"))
-        default:
+func refIDFromType(refid string, strat uint8) uint32 {
+	// XFUN, DENY, INIT, STEP, RATE etc.
+	// Zelf zorgen voor de juiste RFC5905 match - of niet ;-)
+	switch strat {
+	case 0,1,16:
+                return binary.BigEndian.Uint32([]byte(refid))
+        default: 
                 return rand.Uint32()
         }
 }
@@ -108,26 +108,24 @@ func ntpTimestampParts(t time.Time) (sec uint32, frac uint32) {
 }
 
 func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFrac uint32) {
-        settings := req[0]
-        version = (settings >> 3) & 0x07
-        mode = settings & 0x07
-        txSec = binary.BigEndian.Uint32(req[40:44])
-        txFrac = binary.BigEndian.Uint32(req[44:48])
-        return
+	settings := req[0]
+	version = (settings >> 3) & 0x07
+	mode = settings & 0x07
+	txSec = binary.BigEndian.Uint32(req[40:44])
+	txFrac = binary.BigEndian.Uint32(req[44:48])
+	return
 }
 
 func createFakeNTPResponse(req []byte, cfg Config) []byte {
-	now := time.Now()	// now := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
-	nowSec, nowFrac := ntpTimestampParts(now)	//nowSec, nowFrac := ntpTimestampParts(now.Add(3600 * time.Second))
 
 	refOffset := cfg.MaxRefTimeOffset	// refOffset := rand.Int63n(cfg.MaxRefTimeOffset)
-	refTime := now.Add(-time.Duration(refOffset) * time.Second)
+	refTime := nowRx.Add(-time.Duration(refOffset) * time.Second)
 	refSec, refFrac := ntpTimestampParts(refTime)
 
-	//rxTime := now	
-	rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
+	rxTime := nowRx	
+	//rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
 	rxSec, rxFrac := ntpTimestampParts(rxTime)
-
+	
 	li := uint8(cfg.LeapIndicator & 0x03)
 	vn := uint8(cfg.VersionNumber & 0x07)
 	mode := uint8(4)
@@ -139,14 +137,25 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 	pollRange := cfg.MaxPoll - cfg.MinPoll + 1
 	poll := int8(rand.Intn(pollRange) + cfg.MinPoll)
 
+	//time.Sleep(1 * time.Second)
+	// De nowTx zo laat mogelijk
+	nowTx := time.Now()
+	nowSec, nowFrac := ntpTimestampParts(nowTx)
+
+	stratumRand := uint8(rand.Intn(cfg.MaxStratum-cfg.MinStratum+1) + cfg.MinStratum)
+	rootRand := stratumRand
+	if stratumRand == 0 {
+		rootRand = 1
+	}
+
 	packet := NTPPacket{
 		Settings:     settings,
-		Stratum:      uint8(rand.Intn(cfg.MaxStratum-cfg.MinStratum+1) + cfg.MinStratum),
+		Stratum:      stratumRand,
 		Poll:         poll,
 		Precision:    precision,
-		RootDelay:    0,	// RootDelay:    rand.Uint32(),
-		RootDisp:     1,	// RootDisp:     rand.Uint32(),
-		RefID:        refIDFromType(cfg.RefIDType),
+		RootDelay:    100 * (uint32(rootRand) - 1),	// RootDelay:    rand.Uint32(),
+		RootDisp:     200 * (uint32(rootRand) - 1),	// RootDisp:     rand.Uint32(),
+		RefID:        refIDFromType(cfg.RefIDType, stratumRand),
 		RefTimeSec:   refSec,
 		RefTimeFrac:  refFrac,
 		OrigTimeSec:  binary.BigEndian.Uint32(req[40:44]),
@@ -206,6 +215,8 @@ func main() {
 		if err != nil || n < NtpPacketSize {
 			continue
 		}
+		
+		nowRx = time.Now()  // nowRx := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
 
 		version, mode, txSec, txFrac := parseClientInfo(buf)
 		if mode != 3 {
@@ -216,13 +227,13 @@ func main() {
 		}
 
 		if cfg.Debug {
-			txFloat := float64(txSec-NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
+			txFloat := float64(txSec - NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
 			txUnixSec := int64(txFloat)
 			txTime := time.Unix(txUnixSec, int64((txFloat-float64(txUnixSec))*1e9)).UTC().Format(timeFormat)
 			fmt.Printf("Verzoek van %s\n  - NTP versie: %d\n  - Client transmit timestamp: %s\n",
 				clientAddr.IP.String(), version, txTime)
 		}
-
+		
 		resp := createFakeNTPResponse(buf, cfg)
 		_, err = conn.WriteToUDP(resp, clientAddr)
 		if err != nil && cfg.Debug {
