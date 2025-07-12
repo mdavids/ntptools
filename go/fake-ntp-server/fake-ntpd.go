@@ -137,14 +137,16 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
         pollRange := cfg.MaxPoll - cfg.MinPoll + 1
         poll := int8(rand.Intn(pollRange) + cfg.MinPoll)
 
-        //time.Sleep(1 * time.Second)
+        time.Sleep(1 * time.Second)
         // De nowTx zo laat mogelijk
         //nowTx := time.Now()
-        nowTx := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
-        //nowTx := time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+        //nowTx := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
+        nowTx := time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+        //nowTx := time.Now().Add(1 * time.Hour)
+        // zie ook nowRx
 
 
-        nowSec, nowFrac := ntpTimestampParts(nowTx)
+        txSec, txFrac := ntpTimestampParts(nowTx)
 
         stratumRand := uint8(rand.Intn(cfg.MaxStratum-cfg.MinStratum+1) + cfg.MinStratum)
         rootRand := stratumRand
@@ -166,8 +168,8 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
                 OrigTimeFrac: binary.BigEndian.Uint32(req[44:48]),
                 RxTimeSec:    rxSec,
                 RxTimeFrac:   rxFrac,
-                TxTimeSec:    nowSec,
-                TxTimeFrac:   nowFrac,
+                TxTimeSec:    txSec,
+                TxTimeFrac:   txFrac,
         }
 
         buf := make([]byte, NtpPacketSize)
@@ -221,8 +223,10 @@ func main() {
                 }
                 
                 //nowRx = time.Now() 
-                nowRx = time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
-                //nowRx = time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+                //nowRx = time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
+                nowRx = time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+                //nowRx := time.Now().Add(1 * time.Hour)
+                // zie ook nowTX
 
                 version, mode, txSec, txFrac := parseClientInfo(buf)
                 if mode != 3 {
