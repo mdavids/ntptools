@@ -33,11 +33,10 @@ func main() {
 }
 
 func TestQuery(host string) {
+        now := time.Now()
         fmt.Printf("\n\n[%s] ----------------------\n", host)
         fmt.Printf("[%s] NTP protocol version %d\n", host, 4)
-
-
-        now := time.Now()
+        fmt.Printf("[%s]  LocalTime: %v\n", host, now.Format(timeFormat))
         
         r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: 4})
         if err != nil {
