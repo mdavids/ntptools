@@ -44,8 +44,7 @@ func TestQuery(host string) {
                 os.Exit(1)
         }
 
-        fmt.Printf("[%s]  LocalTime: %v\n", host, now.Format(timeFormat)) 
-        //fmt.Printf("[%s]  LocalTime+Offset: %v\n", host, time.Now().Add(r.ClockOffset))
+        fmt.Printf("[%s]    +Offset: %v\n", host, time.Now().Add(r.ClockOffset).Format(timeFormat))
         fmt.Printf("[%s]   XmitTime: %v\n", host, r.Time.Format(timeFormat))
         fmt.Printf("[%s]    RefTime: %v\n", host, r.ReferenceTime.Format(timeFormat))
         //MD kan niet fmt.Printf("[%s]   OrigTime: %v\n", host, r.OriginTime)   
