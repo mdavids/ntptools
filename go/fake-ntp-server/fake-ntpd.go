@@ -225,7 +225,7 @@ func main() {
                 //nowRx = time.Now() 
                 //nowRx = time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
                 nowRx = time.Now().AddDate(20, 0, 0) // 20 jaar erbij
-                //nowRx := time.Now().Add(1 * time.Hour)
+                //nowRx = time.Now().Add(1 * time.Hour)
                 // zie ook nowTX
 
                 version, mode, txSec, txFrac := parseClientInfo(buf)
