@@ -15,7 +15,7 @@ import (
 var emptyTime time.Time
 
 const (
-        timeFormat = "Mon Jan _2 2006  15:04:05.00000000 (MST)"
+        timeFormat = "Mon Jan _2 2006  15:04:05.000000000 (MST)"
 )
 
 var usage = `Usage: ntpdetail [HOST]
