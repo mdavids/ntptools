@@ -1,0 +1,20 @@
+{
+  "port": 123,
+  "debug": true,
+  "min_poll": 0,
+  "max_poll": 0,
+  "min_precision": -29,
+  "max_precision": -20,
+  "max_ref_time_offset": 60,
+  "ref_id_type": "XFUN",
+  "min_stratum": 1,
+  "max_stratum": 1,
+  "leap_indicator": 0,
+  "version_number": 4,
+
+  "jitter_ms": 10,
+  "drift_model": "random_walk",
+  "drift_ppm": 50.0,
+  "drift_step_ppm": 50.0,
+  "drift_update_interval_sec": 10 
+}
