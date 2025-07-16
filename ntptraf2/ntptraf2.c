@@ -64,6 +64,7 @@ unsigned long long int ntpv1_mode_counter = 0; // NTPv1 but with mode (bit unusu
 unsigned long long int ntpv2_counter = 0; // RFC1119 NTPv2 packetcount
 unsigned long long int ntpv3_counter = 0; // RFC1305 NTPv3 packetcount
 unsigned long long int ntpv4_counter = 0; // RFC5905 NTPv4 packetcount
+unsigned long long int ntpv5_counter = 0; // Draft NTPv5 packetcount
 unsigned long long int kiss_rate_counter = 0; // Kiss-o'-death RATE
 unsigned long long int ntp_client_counter = 0; // mode 3 client
 unsigned long long int ntp_server_counter = 0; // mode 4 server
@@ -145,11 +146,11 @@ main(int argc, char * argv[]) {
   //savetty();
   initscr();
 
-  if ((LINES < 20) || (COLS < 100)) {
+  if ((LINES < 21) || (COLS < 100)) {
     endwin();
     printf("Version: %s\n", VERSION);
     printf
-      ("This program requires a screen size of at least 100 columns by 20 lines\n"
+      ("This program requires a screen size of at least 100 columns by 21 lines\n"
         "Please resize your window.\n");
     exit(EXIT_FAILURE);
   }
@@ -359,6 +360,9 @@ handle_packet(u_char * args,
     case 4:
       ++ntpv4_counter;
       break;
+    case 5:
+      ++ntpv5_counter;
+      break;      
       // no default: needed
     }
     break;
@@ -491,12 +495,13 @@ print_numbers(void) {
   mvprintw(10, 3, "NTPv2 queries: %'9llu", ntpv2_counter);
   mvprintw(11, 3, "NTPv3 queries: %'9llu", ntpv3_counter);
   mvprintw(12, 3, "NTPv4 queries: %'9llu", ntpv4_counter);
-  mvprintw(14, 3, "client reqs:   %'9llu (%6.2f qps)                ", ntp_client_counter, ntp_qps);
-  mvprintw(15, 3, "server rspns:  %'9llu (%6.2f %%)         ", ntp_server_counter, server_percentage);
-  mvprintw(16, 3, "control pkts:  %'9llu", ntp_control_counter);
-  mvprintw(17, 3, "ntpdc pkts:    %'9llu", ntp_private_counter);
+  mvprintw(13, 3, "NTPv5 queries: %'9llu", ntpv5_counter);  
+  mvprintw(15, 3, "client reqs:   %'9llu (%6.2f qps)                ", ntp_client_counter, ntp_qps);
+  mvprintw(16, 3, "server rspns:  %'9llu (%6.2f %%)         ", ntp_server_counter, server_percentage);
+  mvprintw(17, 3, "control pkts:  %'9llu", ntp_control_counter);
+  mvprintw(18, 3, "ntpdc pkts:    %'9llu", ntp_private_counter);
   attron(COLOR_PAIR(1));
-  mvprintw(19, 3, "RATE KODs:     %'9llu", kiss_rate_counter);
+  mvprintw(20, 3, "RATE KODs:     %'9llu", kiss_rate_counter);
 
   refresh();
 }
