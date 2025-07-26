@@ -20,23 +20,24 @@ const (
 )
 
 type Config struct {
-	Port             int     `json:"port"`
-	Debug            bool    `json:"debug"`
-	MinPoll          int     `json:"min_poll"`
-	MaxPoll          int     `json:"max_poll"`
-	MinPrecision     int     `json:"min_precision"`
-	MaxPrecision     int     `json:"max_precision"`
-	MaxRefTimeOffset int64   `json:"max_ref_time_offset"`
-	RefIDType        string  `json:"ref_id_type"`
-	MinStratum       int     `json:"min_stratum"`
-	MaxStratum       int     `json:"max_stratum"`
-	LeapIndicator    int     `json:"leap_indicator"`
-	VersionNumber    int     `json:"version_number"`
-	JitterMs         int     `json:"jitter_ms"`
-	DriftModel       string  `json:"drift_model"`
-	DriftPPM         float64 `json:"drift_ppm"`
-	DriftStepPPM     float64 `json:"drift_step_ppm"`
-	DriftUpdateSec   int     `json:"drift_update_interval_sec"`
+	Port              int     `json:"port"`
+	Debug             bool    `json:"debug"`
+	MinPoll           int     `json:"min_poll"`
+	MaxPoll           int     `json:"max_poll"`
+	MinPrecision      int     `json:"min_precision"`
+	MaxPrecision      int     `json:"max_precision"`
+	MaxRefTimeOffset  int64   `json:"max_ref_time_offset"`
+	RefIDType         string  `json:"ref_id_type"`
+	MinStratum        int     `json:"min_stratum"`
+	MaxStratum        int     `json:"max_stratum"`
+	LeapIndicator     int     `json:"leap_indicator"`
+	VersionNumber     int     `json:"version_number"`
+	JitterMs          int     `json:"jitter_ms"`
+	ProcessingDelayMs int     `json:"processing_delay_ms"`
+	DriftModel        string  `json:"drift_model"`
+	DriftPPM          float64 `json:"drift_ppm"`
+	DriftStepPPM      float64 `json:"drift_step_ppm"`
+	DriftUpdateSec    int     `json:"drift_update_interval_sec"`
 }
 
 type DriftSimulator struct {
@@ -167,7 +168,8 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byt
 	// Apply jitter to RxTime and TxTime
 	// TODO
 	Jitter := time.Duration(rand.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
-	rxTime := now.Add(Jitter).Add(-10 * time.Millisecond) // 10 ms less than txTime
+	processingDelay := time.Duration(cfg.ProcessingDelayMs) * time.Millisecond
+	rxTime := now.Add(Jitter).Add(-processingDelay) // processing delay before txTime
 	txTime := now.Add(Jitter)
 
 	refTime := now.Add(-time.Duration(cfg.MaxRefTimeOffset) * time.Second)
@@ -277,8 +279,8 @@ func main() {
 		}
 
 		if cfg.Debug {
-			fmt.Printf("Response sent - Drift: %.6f ppm (%.3f ms offset), Jitter: %v, RefTime offset: %d s\n",
-				driftSim.currentDrift, float64(driftOffset.Nanoseconds())/1e6, actualJitter, cfg.MaxRefTimeOffset)
+			fmt.Printf("Response sent - Drift: %.6f ppm (%.3f ms offset), Jitter: %v, Processing delay: %d ms, RefTime offset: %d s\n",
+				driftSim.currentDrift, float64(driftOffset.Nanoseconds())/1e6, actualJitter, cfg.ProcessingDelayMs, cfg.MaxRefTimeOffset)
 		}
 	}
 }
