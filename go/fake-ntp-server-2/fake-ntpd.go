@@ -10,6 +10,8 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -38,29 +40,66 @@ type Config struct {
 	DriftPPM          float64 `json:"drift_ppm"`
 	DriftStepPPM      float64 `json:"drift_step_ppm"`
 	DriftUpdateSec    int     `json:"drift_update_interval_sec"`
+	StateFile         string  `json:"state_file"`
+	PersistState      bool    `json:"persist_state"`
+}
+
+type RuntimeState struct {
+	BaseTime       time.Time `json:"base_time"`
+	StartWall      time.Time `json:"start_wall"`
+	LastUpdate     time.Time `json:"last_update"`
+	CurrentDrift   float64   `json:"current_drift"`
+	RandomSeed     int64     `json:"random_seed"`
+	RequestCounter uint64    `json:"request_counter"`
 }
 
 type DriftSimulator struct {
-	baseTime     time.Time
-	startWall    time.Time
-	model        string
-	ppm          float64
-	stepPPM      float64
-	updateEvery  time.Duration
-	lastUpdate   time.Time
-	currentDrift float64
+	baseTime       time.Time
+	startWall      time.Time
+	model          string
+	ppm            float64
+	stepPPM        float64
+	updateEvery    time.Duration
+	lastUpdate     time.Time
+	currentDrift   float64
+	requestCounter uint64
 }
 
 func NewDriftSimulator(cfg Config) *DriftSimulator {
 	return &DriftSimulator{
-		baseTime:     time.Now(),
-		startWall:    time.Now(),
-		model:        cfg.DriftModel,
-		ppm:          cfg.DriftPPM,
-		stepPPM:      cfg.DriftStepPPM,
-		updateEvery:  time.Duration(cfg.DriftUpdateSec) * time.Second,
-		lastUpdate:   time.Now(),
-		currentDrift: cfg.DriftPPM,
+		baseTime:       time.Now(),
+		startWall:      time.Now(),
+		model:          cfg.DriftModel,
+		ppm:            cfg.DriftPPM,
+		stepPPM:        cfg.DriftStepPPM,
+		updateEvery:    time.Duration(cfg.DriftUpdateSec) * time.Second,
+		lastUpdate:     time.Now(),
+		currentDrift:   cfg.DriftPPM,
+		requestCounter: 0,
+	}
+}
+
+func NewDriftSimulatorFromState(cfg Config, state *RuntimeState) *DriftSimulator {
+	return &DriftSimulator{
+		baseTime:       state.BaseTime,
+		startWall:      state.StartWall,
+		model:          cfg.DriftModel,
+		ppm:            cfg.DriftPPM,
+		stepPPM:        cfg.DriftStepPPM,
+		updateEvery:    time.Duration(cfg.DriftUpdateSec) * time.Second,
+		lastUpdate:     state.LastUpdate,
+		currentDrift:   state.CurrentDrift,
+		requestCounter: state.RequestCounter,
+	}
+}
+
+func (d *DriftSimulator) GetState() *RuntimeState {
+	return &RuntimeState{
+		BaseTime:       d.baseTime,
+		StartWall:      d.startWall,
+		LastUpdate:     d.lastUpdate,
+		CurrentDrift:   d.currentDrift,
+		RequestCounter: d.requestCounter,
 	}
 }
 
@@ -72,6 +111,7 @@ func (d *DriftSimulator) Now() time.Time {
 	}
 
 	if d.model == "random_walk" && time.Since(d.lastUpdate) >= d.updateEvery {
+		// Use the global random source seeded by the main function
 		delta := (rand.Float64()*2 - 1) * d.stepPPM
 		d.currentDrift += delta
 		d.lastUpdate = time.Now()
@@ -130,7 +170,35 @@ func loadConfig(path string) Config {
 		log.Fatalf("Invalid poll range: %d-%d", config.MinPoll, config.MaxPoll)
 	}
 
+	// Set defaults for new config options
+	if config.StateFile == "" {
+		config.StateFile = "fake-ntpd-state.json"
+	}
+
 	return config
+}
+
+func saveState(filename string, state *RuntimeState) error {
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, data, 0o644)
+}
+
+func loadState(filename string) (*RuntimeState, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var state RuntimeState
+	err = json.Unmarshal(data, &state)
+	if err != nil {
+		return nil, err
+	}
+
+	return &state, nil
 }
 
 func refIDFromType(refid string, strat uint8) uint32 {
@@ -139,6 +207,15 @@ func refIDFromType(refid string, strat uint8) uint32 {
 		return binary.BigEndian.Uint32([]byte(refid))
 	default:
 		return rand.Uint32()
+	}
+}
+
+func refIDFromTypeWithRng(refid string, strat uint8, rng *rand.Rand) uint32 {
+	switch strat {
+	case 0, 1, 16:
+		return binary.BigEndian.Uint32([]byte(refid))
+	default:
+		return rng.Uint32()
 	}
 }
 
@@ -160,14 +237,14 @@ func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFra
 	return
 }
 
-func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byte, time.Duration, time.Duration, time.Duration, time.Duration, time.Duration) {
+func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator, rng *rand.Rand) ([]byte, time.Duration, time.Duration, time.Duration, time.Duration, time.Duration) {
+	drift.requestCounter++
 	realNow := time.Now()
 	now := drift.Now()
 	driftOffset := now.Sub(realNow)
 
-	// Apply jitter to RxTime and TxTime
-	// TODO
-	jitter := time.Duration(rand.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
+	// Apply jitter to RxTime and TxTime using deterministic random
+	jitter := time.Duration(rng.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
 	processingDelay := time.Duration(cfg.ProcessingDelayMs) * time.Millisecond
 	refTimeOffset := time.Duration(cfg.MaxRefTimeOffset) * time.Second
 
@@ -189,11 +266,11 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byt
 	mode := uint8(4)
 	settings := (li << 6) | (vn << 3) | mode
 
-	precision := int8(rand.Intn(cfg.MaxPrecision-cfg.MinPrecision+1) + cfg.MinPrecision)
-	poll := int8(rand.Intn(cfg.MaxPoll-cfg.MinPoll+1) + cfg.MinPoll)
+	precision := int8(rng.Intn(cfg.MaxPrecision-cfg.MinPrecision+1) + cfg.MinPrecision)
+	poll := int8(rng.Intn(cfg.MaxPoll-cfg.MinPoll+1) + cfg.MinPoll)
 
-	stratum := uint8(rand.Intn(cfg.MaxStratum-cfg.MinStratum+1) + cfg.MinStratum)
-	refid := refIDFromType(cfg.RefIDType, stratum)
+	stratum := uint8(rng.Intn(cfg.MaxStratum-cfg.MinStratum+1) + cfg.MinStratum)
+	refid := refIDFromTypeWithRng(cfg.RefIDType, stratum, rng)
 
 	packet := NTPPacket{
 		Settings:     settings,
@@ -235,11 +312,56 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byt
 
 func main() {
 	configPath := flag.String("config", "config.json", "Path to config file")
+	resetState := flag.Bool("reset-state", false, "Reset saved state and start fresh")
 	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
 
 	cfg := loadConfig(*configPath)
-	driftSim := NewDriftSimulator(cfg)
+
+	var driftSim *DriftSimulator
+	var globalRng *rand.Rand
+	var currentState *RuntimeState
+
+	// Load or create state
+	if cfg.PersistState && !*resetState {
+		if state, err := loadState(cfg.StateFile); err == nil {
+			log.Printf("Loaded state from %s", cfg.StateFile)
+			driftSim = NewDriftSimulatorFromState(cfg, state)
+			globalRng = rand.New(rand.NewSource(state.RandomSeed))
+			currentState = state
+		} else {
+			log.Printf("Could not load state (%v), starting fresh", err)
+		}
+	}
+
+	// Create fresh state if not loaded
+	if driftSim == nil {
+		seed := time.Now().UnixNano()
+		rand.Seed(seed)
+		globalRng = rand.New(rand.NewSource(seed))
+		driftSim = NewDriftSimulator(cfg)
+		currentState = driftSim.GetState()
+		currentState.RandomSeed = seed
+		log.Printf("Starting with fresh state (seed: %d)", seed)
+	}
+
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Println("Received shutdown signal, saving state...")
+		if cfg.PersistState {
+			state := driftSim.GetState()
+			state.RandomSeed = currentState.RandomSeed
+			if err := saveState(cfg.StateFile, state); err != nil {
+				log.Printf("Error saving state: %v", err)
+			} else {
+				log.Printf("State saved to %s", cfg.StateFile)
+			}
+		}
+		os.Exit(0)
+	}()
+
 	// timeFormat := "2006-01-02 15:04:05 MST"
 	timeFormat := "Jan _2 2006  15:04:05.00000000 (MST)"
 
@@ -278,7 +400,7 @@ func main() {
 				clientAddr.IP.String(), version, txTime)
 		}
 
-		resp, totalOffset, driftOffset, jitter, processingDelay, refTimeOffset := createFakeNTPResponse(buf, cfg, driftSim)
+		resp, totalOffset, driftOffset, jitter, processingDelay, refTimeOffset := createFakeNTPResponse(buf, cfg, driftSim, globalRng)
 		_, err = conn.WriteToUDP(resp, clientAddr)
 		if err != nil && cfg.Debug {
 			log.Printf("Error sending: %v", err)
