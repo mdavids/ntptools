@@ -40,14 +40,14 @@ type Config struct {
 }
 
 type DriftSimulator struct {
-	baseTime      time.Time
-	startWall     time.Time
-	model         string
-	ppm           float64
-	stepPPM       float64
-	updateEvery   time.Duration
-	lastUpdate    time.Time
-	currentDrift  float64
+	baseTime     time.Time
+	startWall    time.Time
+	model        string
+	ppm          float64
+	stepPPM      float64
+	updateEvery  time.Duration
+	lastUpdate   time.Time
+	currentDrift float64
 }
 
 func NewDriftSimulator(cfg Config) *DriftSimulator {
@@ -159,8 +159,10 @@ func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFra
 	return
 }
 
-func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) []byte {
+func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byte, time.Duration, time.Duration) {
+	realNow := time.Now()
 	now := drift.Now()
+	totalDriftOffset := now.Sub(realNow)
 
 	// Apply jitter to RxTime and TxTime
 	// TODO
@@ -220,7 +222,7 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) []byte
 	binary.BigEndian.PutUint32(buf[40:], packet.TxTimeSec)
 	binary.BigEndian.PutUint32(buf[44:], packet.TxTimeFrac)
 
-	return buf
+	return buf, totalDriftOffset, Jitter
 }
 
 func main() {
@@ -230,7 +232,7 @@ func main() {
 
 	cfg := loadConfig(*configPath)
 	driftSim := NewDriftSimulator(cfg)
-	//timeFormat := "2006-01-02 15:04:05 MST"
+	// timeFormat := "2006-01-02 15:04:05 MST"
 	timeFormat := "Jan _2 2006  15:04:05.00000000 (MST)"
 
 	addr := net.UDPAddr{
@@ -268,10 +270,15 @@ func main() {
 				clientAddr.IP.String(), version, txTime)
 		}
 
-		resp := createFakeNTPResponse(buf, cfg, driftSim)
+		resp, driftOffset, actualJitter := createFakeNTPResponse(buf, cfg, driftSim)
 		_, err = conn.WriteToUDP(resp, clientAddr)
 		if err != nil && cfg.Debug {
 			log.Printf("Error sending: %v", err)
+		}
+
+		if cfg.Debug {
+			fmt.Printf("Response sent - Drift: %.6f ppm (%.3f ms offset), Jitter: %v, RefTime offset: %d s\n",
+				driftSim.currentDrift, float64(driftOffset.Nanoseconds())/1e6, actualJitter, cfg.MaxRefTimeOffset)
 		}
 	}
 }
