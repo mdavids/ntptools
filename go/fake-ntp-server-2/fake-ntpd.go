@@ -101,7 +101,7 @@ type NTPPacket struct {
 func loadConfig(path string) Config {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("Kan configbestand niet openen: %v", err)
+		log.Fatalf("Cannot open config file: %v", err)
 	}
 	defer file.Close()
 
@@ -109,24 +109,24 @@ func loadConfig(path string) Config {
 	var config Config
 	err = decoder.Decode(&config)
 	if err != nil {
-		log.Fatalf("Fout bij inlezen configbestand: %v", err)
+		log.Fatalf("Error reading config file: %v", err)
 	}
 
-	// Validaties
+	// Validations
 	if config.LeapIndicator < 0 || config.LeapIndicator > 3 {
-		log.Fatalf("Ongeldige leap-indicator: %d (moet 0–3 zijn)", config.LeapIndicator)
+		log.Fatalf("Invalid leap indicator: %d (must be 0–3)", config.LeapIndicator)
 	}
 	if config.VersionNumber < 1 || config.VersionNumber > 7 {
-		log.Fatalf("Ongeldig version number: %d (moet 1–7 zijn)", config.VersionNumber)
+		log.Fatalf("Invalid version number: %d (must be 1–7)", config.VersionNumber)
 	}
 	if config.MinStratum < 0 || config.MaxStratum > 16 || config.MinStratum > config.MaxStratum {
-		log.Fatalf("Ongeldige stratum-range: %d-%d (moet 0–16 en min<=max)", config.MinStratum, config.MaxStratum)
+		log.Fatalf("Invalid stratum range: %d-%d (must be 0–16 and min<=max)", config.MinStratum, config.MaxStratum)
 	}
 	if config.MinPrecision > config.MaxPrecision {
-		log.Fatalf("Ongeldige precision-range: %d-%d", config.MinPrecision, config.MaxPrecision)
+		log.Fatalf("Invalid precision range: %d-%d", config.MinPrecision, config.MaxPrecision)
 	}
 	if config.MinPoll > config.MaxPoll {
-		log.Fatalf("Ongeldige poll-range: %d-%d", config.MinPoll, config.MaxPoll)
+		log.Fatalf("Invalid poll range: %d-%d", config.MinPoll, config.MaxPoll)
 	}
 
 	return config
@@ -162,10 +162,10 @@ func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFra
 func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) []byte {
 	now := drift.Now()
 
-	// Pas jitter toe op RxTime en TxTime
+	// Apply jitter to RxTime and TxTime
 	// TODO
 	Jitter := time.Duration(rand.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
-	rxTime := now.Add(Jitter).Add(-10 * time.Millisecond) // 10 ms minder dan txTime
+	rxTime := now.Add(Jitter).Add(-10 * time.Millisecond) // 10 ms less than txTime
 	txTime := now.Add(Jitter)
 
 	refTime := now.Add(-time.Duration(cfg.MaxRefTimeOffset) * time.Second)
@@ -224,7 +224,7 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) []byte
 }
 
 func main() {
-	configPath := flag.String("config", "config.json", "Pad naar configbestand")
+	configPath := flag.String("config", "config.json", "Path to config file")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
@@ -239,11 +239,11 @@ func main() {
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		log.Fatalf("Kan niet luisteren op UDP %d: %v", addr.Port, err)
+		log.Fatalf("Cannot listen on UDP %d: %v", addr.Port, err)
 	}
 	defer conn.Close()
 
-	log.Println("Fake NTP-server gestart op poort", addr.Port)
+	log.Println("Fake NTP server started on port", addr.Port)
 
 	for {
 		buf := make([]byte, NtpPacketSize)
@@ -255,7 +255,7 @@ func main() {
 		version, mode, txSec, txFrac := parseClientInfo(buf)
 		if mode != 3 {
 			if cfg.Debug {
-				fmt.Printf("Genegeerd verzoek van %s met mode %d\n", clientAddr.IP.String(), mode)
+				fmt.Printf("Ignored request from %s with mode %d\n", clientAddr.IP.String(), mode)
 			}
 			continue
 		}
@@ -264,14 +264,14 @@ func main() {
 			txFloat := float64(txSec-NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
 			txUnixSec := int64(txFloat)
 			txTime := time.Unix(txUnixSec, int64((txFloat-float64(txUnixSec))*1e9)).UTC().Format(timeFormat)
-			fmt.Printf("Verzoek van %s\n  - NTP versie: %d\n  - Client transmit timestamp: %s\n",
+			fmt.Printf("Request from %s\n  - NTP version: %d\n  - Client transmit timestamp: %s\n",
 				clientAddr.IP.String(), version, txTime)
 		}
 
 		resp := createFakeNTPResponse(buf, cfg, driftSim)
 		_, err = conn.WriteToUDP(resp, clientAddr)
 		if err != nil && cfg.Debug {
-			log.Printf("Fout bij versturen: %v", err)
+			log.Printf("Error sending: %v", err)
 		}
 	}
 }
