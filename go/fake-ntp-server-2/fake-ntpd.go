@@ -160,17 +160,23 @@ func parseClientInfo(req []byte) (version uint8, mode uint8, txSec uint32, txFra
 	return
 }
 
-func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byte, time.Duration, time.Duration) {
+func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byte, time.Duration, time.Duration, time.Duration, time.Duration, time.Duration) {
 	realNow := time.Now()
 	now := drift.Now()
-	totalDriftOffset := now.Sub(realNow)
+	driftOffset := now.Sub(realNow)
 
 	// Apply jitter to RxTime and TxTime
 	// TODO
-	Jitter := time.Duration(rand.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
+	jitter := time.Duration(rand.Intn(cfg.JitterMs*2+1)-cfg.JitterMs) * time.Millisecond
 	processingDelay := time.Duration(cfg.ProcessingDelayMs) * time.Millisecond
-	rxTime := now.Add(Jitter).Add(-processingDelay) // processing delay before txTime
-	txTime := now.Add(Jitter)
+	refTimeOffset := time.Duration(cfg.MaxRefTimeOffset) * time.Second
+
+	rxTime := now.Add(jitter).Add(-processingDelay) // processing delay before txTime
+	txTime := now.Add(jitter)
+
+	// Calculate total offset from real time in the TxTime we're sending
+	// (RefTime doesn't affect client sync, only TxTime matters)
+	totalOffset := driftOffset + jitter
 
 	refTime := now.Add(-time.Duration(cfg.MaxRefTimeOffset) * time.Second)
 
@@ -224,7 +230,7 @@ func createFakeNTPResponse(req []byte, cfg Config, drift *DriftSimulator) ([]byt
 	binary.BigEndian.PutUint32(buf[40:], packet.TxTimeSec)
 	binary.BigEndian.PutUint32(buf[44:], packet.TxTimeFrac)
 
-	return buf, totalDriftOffset, Jitter
+	return buf, totalOffset, driftOffset, jitter, processingDelay, refTimeOffset
 }
 
 func main() {
@@ -268,19 +274,19 @@ func main() {
 			txFloat := float64(txSec-NtpEpochOffset) + float64(txFrac)/math.Pow(2, 32)
 			txUnixSec := int64(txFloat)
 			txTime := time.Unix(txUnixSec, int64((txFloat-float64(txUnixSec))*1e9)).UTC().Format(timeFormat)
-			fmt.Printf("Request from %s\n  - NTP version: %d\n  - Client transmit timestamp: %s\n",
+			fmt.Printf("Request from %s (NTP v%d)\n  - Client transmit timestamp: %s\n",
 				clientAddr.IP.String(), version, txTime)
 		}
 
-		resp, driftOffset, actualJitter := createFakeNTPResponse(buf, cfg, driftSim)
+		resp, totalOffset, driftOffset, jitter, processingDelay, refTimeOffset := createFakeNTPResponse(buf, cfg, driftSim)
 		_, err = conn.WriteToUDP(resp, clientAddr)
 		if err != nil && cfg.Debug {
 			log.Printf("Error sending: %v", err)
 		}
 
 		if cfg.Debug {
-			fmt.Printf("Response sent - Drift: %.6f ppm (%.3f ms offset), Jitter: %v, Processing delay: %d ms, RefTime offset: %d s\n",
-				driftSim.currentDrift, float64(driftOffset.Nanoseconds())/1e6, actualJitter, cfg.ProcessingDelayMs, cfg.MaxRefTimeOffset)
+			fmt.Printf("Response sent - Total offset: %v | Drift: %.6f ppm (%v), Jitter: %v, Processing delay: %v, RefTime offset: %v\n",
+				totalOffset, driftSim.currentDrift, driftOffset, jitter, processingDelay, refTimeOffset)
 		}
 	}
 }
