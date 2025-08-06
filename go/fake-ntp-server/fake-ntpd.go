@@ -32,6 +32,10 @@ type Config struct {
         MaxStratum       int    `json:"max_stratum"`
         LeapIndicator    int    `json:"leap_indicator"`
         VersionNumber    int    `json:"version_number"`
+
+        // Nieuw: rx time offset in milliseconden. Positief = aftrekken van rxTime,
+        // negatief = toevoegen. Voorbeeld: 10 -> rxTime = rxTime - 10ms.
+        RxTimeOffsetMs int `json:"rx_time_offset_ms"`
 }
 
 type NTPPacket struct {
@@ -93,7 +97,7 @@ func refIDFromType(refid string, strat uint8) uint32 {
         switch strat {
         case 0,1,16:
                 return binary.BigEndian.Uint32([]byte(refid))
-        default: 
+        default:
                 return rand.Uint32()
         }
 }
@@ -122,10 +126,15 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
         refTime := nowRx.Add(-time.Duration(refOffset) * time.Second)
         refSec, refFrac := ntpTimestampParts(refTime)
 
-        rxTime := nowRx 
+        rxTime := nowRx
+        // Pas hier de configureerbare offset toe: standaard wordt er *afgetrokken*; bij een negatief
+        // cfg.RxTimeOffsetMs wordt er toegevoegd.
+        if cfg.RxTimeOffsetMs != 0 {
+                rxTime = rxTime.Add(-time.Duration(cfg.RxTimeOffsetMs) * time.Millisecond)
+        }
         //rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
         rxSec, rxFrac := ntpTimestampParts(rxTime)
-        
+
         li := uint8(cfg.LeapIndicator & 0x03)
         vn := uint8(cfg.VersionNumber & 0x07)
         mode := uint8(4)
@@ -137,11 +146,11 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
         pollRange := cfg.MaxPoll - cfg.MinPoll + 1
         poll := int8(rand.Intn(pollRange) + cfg.MinPoll)
 
-        time.Sleep(1 * time.Second)
+        //time.Sleep(1 * time.Second)
         // De nowTx zo laat mogelijk
-        //nowTx := time.Now()
+        nowTx := time.Now()
         //nowTx := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
-        nowTx := time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+        //nowTx := time.Now().AddDate(20, 0, 0) // 20 jaar erbij
         //nowTx := time.Now().Add(1 * time.Hour)
         // zie ook nowRx
 
@@ -201,8 +210,7 @@ func main() {
 
         cfg := loadConfig(*configPath)
 
-        //timeFormat := "2006-01-02 15:04:05 MST"
-        timeFormat := "Jan _2 2006  15:04:05.00000000 (MST)"
+        timeFormat := "2006-01-02 15:04:05 MST"
 
         addr := net.UDPAddr{
                 Port: cfg.Port,
@@ -223,10 +231,10 @@ func main() {
                         continue
                 }
                 
-                //nowRx = time.Now() 
+                nowRx = time.Now() 
                 //nowRx = time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
-                nowRx = time.Now().AddDate(20, 0, 0) // 20 jaar erbij
-                //nowRx = time.Now().Add(1 * time.Hour)
+                //nowRx = time.Now().AddDate(20, 0, 0) // 20 jaar erbij
+                //nowRx := time.Now().Add(1 * time.Hour)
                 // zie ook nowTX
 
                 version, mode, txSec, txFrac := parseClientInfo(buf)
