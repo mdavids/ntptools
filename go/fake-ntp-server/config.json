@@ -6,7 +6,7 @@
   "min_precision": -29,
   "max_precision": -20,
   "max_ref_time_offset": 300,
-  "rx_time_offset_ms": 7200000,
+  "time_offset_ms": 7200000,
   "ref_id_type": "XFUN",
   "min_stratum": 1,
   "max_stratum": 1,
