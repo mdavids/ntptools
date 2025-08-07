@@ -35,7 +35,7 @@ type Config struct {
 
         // Nieuw: rx time offset in milliseconden. Positief = aftrekken van rxTime,
         // negatief = toevoegen. Voorbeeld: 10 -> rxTime = rxTime - 10ms.
-        RxTimeOffsetMs int `json:"rx_time_offset_ms"`
+        TimeOffsetMs int `json:"time_offset_ms"`
 }
 
 type NTPPacket struct {
@@ -128,10 +128,11 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
 
         rxTime := nowRx
         // Pas hier de configureerbare offset toe: standaard wordt er *afgetrokken*; bij een negatief
-        // cfg.RxTimeOffsetMs wordt er toegevoegd.
-        if cfg.RxTimeOffsetMs != 0 {
-                rxTime = rxTime.Add(-time.Duration(cfg.RxTimeOffsetMs) * time.Millisecond)
+        // cfg.TimeOffsetMs wordt er toegevoegd.
+        if cfg.TimeOffsetMs != 0 {
+                rxTime = rxTime.Add(-time.Duration(cfg.TimeOffsetMs) * time.Millisecond)
         }
+        //rxTime := rxTime.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms) - untested
         //rxTime := now.Add(-time.Duration(rand.Intn(5)+1) * time.Millisecond) // Simuleer ontvangstmoment iets eerder (1–5 ms)
         rxSec, rxFrac := ntpTimestampParts(rxTime)
 
@@ -149,6 +150,9 @@ func createFakeNTPResponse(req []byte, cfg Config) []byte {
         //time.Sleep(1 * time.Second)
         // De nowTx zo laat mogelijk
         nowTx := time.Now()
+        if cfg.TimeOffsetMs != 0 {
+                nowTx = nowTx.Add(-time.Duration(cfg.TimeOffsetMs) * time.Millisecond)
+        }
         //nowTx := time.Date(2040, time.February, 10, 12, 0, 0, 0, time.UTC)
         //nowTx := time.Now().AddDate(20, 0, 0) // 20 jaar erbij
         //nowTx := time.Now().Add(1 * time.Hour)
