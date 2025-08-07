@@ -37,6 +37,7 @@ func TestQuery(host string) {
         fmt.Printf("\n\n[%s] ----------------------\n", host)
         fmt.Printf("[%s] NTP protocol version %d\n", host, 4)
         fmt.Printf("[%s]  LocalTime: %v\n", host, now.Format(timeFormat))
+        fmt.Printf("[%s]   LocalUTC: %v\n", host, now.UTC().Format(timeFormat))
         
         r, err := ntp.QueryWithOptions(host, ntp.QueryOptions{Version: 4})
         if err != nil {
@@ -44,7 +45,8 @@ func TestQuery(host string) {
                 os.Exit(1)
         }
 
-        fmt.Printf("[%s]    +Offset: %v\n", host, time.Now().Add(r.ClockOffset).Format(timeFormat))
+        //fmt.Printf("[%s]    +Offset: %v\n", host, time.Now().Add(r.ClockOffset).Format(timeFormat))
+        fmt.Printf("[%s]    +Offset: %v\n", host, time.Now().Add(r.ClockOffset).UTC().Format(timeFormat))
         fmt.Printf("[%s]   XmitTime: %v\n", host, r.Time.Format(timeFormat))
         fmt.Printf("[%s]    RefTime: %v\n", host, r.ReferenceTime.Format(timeFormat))
         //MD kan niet fmt.Printf("[%s]   OrigTime: %v\n", host, r.OriginTime)   
