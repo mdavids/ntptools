@@ -38,7 +38,7 @@ func TestQuery(host string, stratum uint8, verbose, insecure bool, requestedServ
 		},
 	}
 
-	// Als er een requested server is, stel deze in
+	// Alleen instellen als er een requested server is opgegeven
 	if requestedServer != "" {
 		opt.RequestedNTPServerAddress = requestedServer
 		if requestedPort != "" {
@@ -57,40 +57,29 @@ func TestQuery(host string, stratum uint8, verbose, insecure bool, requestedServ
 		os.Exit(1)
 	}
 
-	// Bepaal de NTP host en port die we gaan gebruiken voor de query
-	ntphost, ntpport := session.Address(), 123
-	if requestedServer != "" {
-		ntphost = requestedServer
-		if requestedPort != "" {
-			portInt, _ := strconv.Atoi(requestedPort)
-			ntpport = portInt
-		}
-	} else {
-		// fallback: split host:port als session.Address() een poort bevat
-		if h, p, err := net.SplitHostPort(session.Address()); err == nil {
-			ntphost, _ = h, 123
-			if portInt, err := strconv.Atoi(p); err == nil {
-				ntpport = portInt
-			}
-		}
+	// Gebruik de server die NTS daadwerkelijk teruggeeft
+	ntphost, ntpport, err := net.SplitHostPort(session.Address())
+	if err != nil {
+		fmt.Printf("Could not deduce NTP host and port: %v\n", err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("\nNTS server: %s\n", host)
 	if requestedServer != "" {
-		fmt.Printf("Requested NTP server: %s:%d\n", ntphost, ntpport)
+		fmt.Printf("Requested NTP server: %s:%s\n", requestedServer, requestedPort)
 	}
 
-	r, err := ntp.QueryWithOptions(
-		net.JoinHostPort(ntphost, strconv.Itoa(ntpport)),
-		ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second},
-	)
+	r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{
+		Version: ntpversion,
+		Timeout: 1 * time.Second,
+	})
 	if err != nil {
 		fmt.Printf("    Result: Error - %v\n\n", err)
 		os.Exit(1)
 	}
 
 	if verbose {
-		fmt.Printf("  Resolver: [%s]:%d\n", ntphost, ntpport)
+		fmt.Printf("  Resolver: [%s]:%s\n", ntphost, ntpport)
 		fmt.Printf("       RTT: %v\n", r.RTT)
 		fmt.Printf("    Offset: %v\n", r.ClockOffset)
 		fmt.Printf("      Poll: %v\n", r.Poll)
