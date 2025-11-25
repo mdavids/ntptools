@@ -17,7 +17,7 @@ var ntpversion int=4
 
 func main() {
 
-        serverPtr := flag.String("server", "nts.time.nl", "server")
+    serverPtr := flag.String("server", "nts.time.nl", "server")
 	stratumPtr := flag.Int("stratum", 1, "stratum")
 	verbosePtr := flag.Bool("verbose", false, "verbose")
 	
@@ -44,7 +44,8 @@ func TestQuery(host string, stratum uint8, verbose bool) {
 
 	fmt.Printf("\nNTS server: %s\n", host)
 
-	r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
+	//bug #10 r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
+	r, err := session.QueryWithOptions(&ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
 	if err != nil {
 		fmt.Printf("    Result: Error - %v\n\n", err.Error())
 		os.Exit(1)
