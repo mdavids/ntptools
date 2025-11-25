@@ -69,7 +69,8 @@ func TestQuery(host string, stratum uint8, verbose, insecure bool, requestedServ
 		fmt.Printf("Requested NTP server: %s:%s\n", requestedServer, requestedPort)
 	}
 
-	r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{
+	//bug #10 r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{
+	r, err := session.QueryWithOptions(&ntp.QueryOptions{
 		Version: ntpversion,
 		Timeout: 1 * time.Second,
 	})
