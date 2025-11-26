@@ -24,10 +24,10 @@ func main() {
 
 	flag.Parse()
 	
-	TestQuery(*serverPtr, uint8(*stratumPtr), *verbosePtr)
+	RunQuery(*serverPtr, uint8(*stratumPtr), *verbosePtr)
 }
 
-func TestQuery(host string, stratum uint8, verbose bool) {
+func RunQuery(host string, stratum uint8, verbose bool) {
 
 	fmt.Printf("\n    Server: %s\n", host)
 

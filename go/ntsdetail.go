@@ -29,10 +29,10 @@ func main() {
                 fmt.Println(usage)
                 os.Exit(0)
         }
-	TestQuery(args[0])
+	RunQuery(args[0])
 }
 
-func TestQuery(host string) {
+func RunQuery(host string) {
 	
 	session, err := nts.NewSession(host)
 	if err != nil {

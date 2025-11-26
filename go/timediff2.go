@@ -23,10 +23,10 @@ func main() {
                 os.Exit(1)
         }
         
-	TestTime(args[0])
+	GetTime(args[0])
 }
 
-func TestTime(host string) {
+func GetTime(host string) {
 	t, err := ntp.Time(host)
 	if err != nil {
 		fmt.Printf("Time could not be get: %v\n", err.Error())

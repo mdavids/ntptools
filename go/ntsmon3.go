@@ -24,10 +24,10 @@ func main() {
 
 	flag.Parse()
 
-	TestQuery(*serverPtr, uint8(*stratumPtr), *verbosePtr, *insecurePtr)
+	RunQuery(*serverPtr, uint8(*stratumPtr), *verbosePtr, *insecurePtr)
 }
 
-func TestQuery(host string, stratum uint8, verbose, insecure bool) {
+func RunQuery(host string, stratum uint8, verbose, insecure bool) {
 
 	opt := &nts.SessionOptions{
 		TLSConfig: &tls.Config{

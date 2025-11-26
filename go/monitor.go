@@ -31,10 +31,10 @@ func main() {
 	} else {
 		stratumopt = 1
 	}
-	TestQuery(os.Args[1], uint8(stratumopt))
+	RunQuery(os.Args[1], uint8(stratumopt))
 }
 
-func TestQuery(host string, stratum uint8) {
+func RunQuery(host string, stratum uint8) {
 	//fmt.Printf("[%s] NTP protocol version %d\n", host, 4)
 /*
 	fmt.Printf("[%s] Stratcheck: %d\n", host, stratum)
