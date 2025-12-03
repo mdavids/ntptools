@@ -1,5 +1,7 @@
 package main
 
+// TODO: stratum 0 option, to disable stratum check
+
 import (
 	"crypto/tls"
 	"flag"
