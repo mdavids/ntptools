@@ -54,6 +54,7 @@ func RunQuery(host string, stratum uint8, verbose, insecure bool) {
 	//bug #10 r, err := ntp.QueryWithOptions(session.Address(), ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
 	r, err := session.QueryWithOptions(&ntp.QueryOptions{Version: ntpversion, Timeout: 1 * time.Second})
 	if err != nil {
+		fmt.Printf("  Resolver: [%s]:%s\n", ntphost, ntpport)
 		fmt.Printf("    Result: Error - %v\n\n", err)
 		os.Exit(1)
 	}
