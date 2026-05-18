@@ -91,6 +91,12 @@ static unsigned long long int ntpv3_counter          = 0;
 static unsigned long long int ntpv4_counter          = 0;
 static unsigned long long int ntpv5_counter          = 0;
 static unsigned long long int kiss_rate_counter      = 0;
+
+/* Telt hoeveel display-ticks geleden het laatste KoD-pakket gezien werd.
+ * Zolang kiss_rate_blink_ticks > 0 knippert de indicator rood;
+ * elke tick wordt de teller verlaagd tot 0. */
+#define KOD_BLINK_TICKS 3
+static int kiss_rate_blink_ticks = 0;
 static unsigned long long int ntp_client_counter     = 0;
 static unsigned long long int ntp_server_counter     = 0;
 static unsigned long long int ntp_control_counter    = 0;
@@ -206,6 +212,7 @@ reset_counters(void)
     ntpv1_counter = ntpv1_mode_counter = ntpv2_counter = 0;
     ntpv3_counter = ntpv4_counter      = ntpv5_counter = 0;
     kiss_rate_counter   = 0;
+    kiss_rate_blink_ticks = 0;
     ntp_client_counter  = ntp_server_counter  = 0;
     ntp_control_counter = ntp_private_counter = 0;
     ntp_client_prev     = tot_bytes_prev      = 0;
@@ -374,18 +381,35 @@ print_numbers(void)
     int lpane = mid - 1;          /* last col of left panel  (exclusive) */
     int rpane_start = mid + 1;    /* first col of right panel */
 
-    /* percentage bar widths */
-    int lbar_w = lpane - 36;      /* left panel: after "IPv4  xx.xx%  avg xxx B  " */
+    /*
+     * IPv4 / IPv6 rijen: tekst in vaste breedte zodat de balk altijd
+     * op dezelfde kolom begint, ongeacht hoe groot het pakketaantal is.
+     *
+     * Kolom-indeling linker paneel:
+     *   col  2: "IPv4  xx.xx%  avg xxx B  "  — 26 tekens
+     *   col 28: pakketaantal, rechts uitgelijnd in 12 tekens
+     *   col 40: spatie
+     *   col 41: percentagebalk t/m lpane-1
+     */
+    int ltext_end = 41;
+    int lbar_w    = lpane - ltext_end - 1;
     if (lbar_w < 4) lbar_w = 4;
-    int rbar_w = cols - rpane_start - 26; /* right panel: after "NTPvX  xxxxxxxxxx  xx.xx%" */
+
+    /*
+     * Kolom-indeling rechter paneel versierijen:
+     *   rpane_start+1: "NTPvX  " (7) + count (10) + "  xx.xx%%" (9) = 26 tekens
+     *   rpane_start+27: percentagebalk
+     */
+    int rtext_end = rpane_start + 27;
+    int rbar_w    = cols - rtext_end - 1;
     if (rbar_w < 4) rbar_w = 4;
 
-    /* sparkline height: use available rows between header row 7 and QPS row */
+    /* sparkline afmetingen */
     int spark_top    = 8;
-    int spark_bottom = rows - 4;  /* leave room for QPS line + hint bar */
+    int spark_bottom = rows - 4;
     if (spark_bottom < spark_top + 2) spark_bottom = spark_top + 2;
-    int spark_h      = spark_bottom - spark_top;   /* bar height in rows */
-    int spark_w      = lpane - 2;                  /* full left panel width */
+    int spark_h      = spark_bottom - spark_top;
+    int spark_w      = lpane - 2;
     if (spark_w > HISTORY_LEN) spark_w = HISTORY_LEN;
     int qps_row      = spark_bottom + 1;
 
@@ -406,7 +430,6 @@ print_numbers(void)
      * LEFT PANEL
      * ================================================================ */
 
-    /* Section: traffic overview */
     attron(COLOR_PAIR(2) | A_BOLD);
     panel_center(1, 0, lpane, " TRAFFIC OVERVIEW ");
 
@@ -415,17 +438,25 @@ print_numbers(void)
     mvprintw(3, 2, "Total bytes   : %'llu  (%'.0f bps)",
              tot_bytes_counter, bytes_sec * 8.0);
 
-    /* IPv4 row — avg shown even when 0 */
-    attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(4, 2, "IPv4 %6.2f%%  avg %3u B  %'llu pkts",
-             ip_percentage, ip_avg_bytes, ip_packet_counter);
-    draw_pct_bar(4, lpane - lbar_w, lbar_w, ip_percentage, COLOR_PAIR(1));
+    /* IPv4 rij */
+    {
+        char pkts[16];
+        snprintf(pkts, sizeof(pkts), "%'llu", ip_packet_counter);
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(4, 2, "IPv4 %6.2f%%  avg %3u B  %12s",
+                 ip_percentage, ip_avg_bytes, pkts);
+        draw_pct_bar(4, ltext_end, lbar_w, ip_percentage, COLOR_PAIR(1));
+    }
 
-    /* IPv6 row */
-    attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(5, 2, "IPv6 %6.2f%%  avg %3u B  %'llu pkts",
-             ipv6_percentage, ipv6_avg_bytes, ipv6_packet_counter);
-    draw_pct_bar(5, lpane - lbar_w, lbar_w, ipv6_percentage, COLOR_PAIR(2));
+    /* IPv6 rij */
+    {
+        char pkts[16];
+        snprintf(pkts, sizeof(pkts), "%'llu", ipv6_packet_counter);
+        attron(COLOR_PAIR(2) | A_BOLD);
+        mvprintw(5, 2, "IPv6 %6.2f%%  avg %3u B  %12s",
+                 ipv6_percentage, ipv6_avg_bytes, pkts);
+        draw_pct_bar(5, ltext_end, lbar_w, ipv6_percentage, COLOR_PAIR(2));
+    }
 
     /* Section: QPS history sparkline */
     attron(COLOR_PAIR(2) | A_BOLD);
@@ -457,10 +488,12 @@ print_numbers(void)
         float vpct = (ntp_total_queries > 0)
                    ? 100.0f * vers[v].cnt / ntp_total_queries
                    : 0.0f;
+        char cnt[16];
+        snprintf(cnt, sizeof(cnt), "%'llu", vers[v].cnt);
         attron(COLOR_PAIR(vers[v].pair) | A_BOLD);
-        mvprintw(2 + v, rpane_start + 1, "%-6s %'10llu  %6.2f%%",
-                 vers[v].label, vers[v].cnt, vpct);
-        draw_pct_bar(2 + v, rpane_start + 26, rbar_w, vpct,
+        mvprintw(2 + v, rpane_start + 1, "%-6s %10s  %6.2f%%",
+                 vers[v].label, cnt, vpct);
+        draw_pct_bar(2 + v, rtext_end, rbar_w, vpct,
                      COLOR_PAIR(vers[v].pair));
     }
 
@@ -479,11 +512,20 @@ print_numbers(void)
     mvprintw(12, rpane_start + 1, "Private/ntpdc(mode 7): %'llu",
               ntp_private_counter);
 
-    /* KoD — rood en opvallend als non-zero */
+    /* KoD — knippert rood gedurende KOD_BLINK_TICKS seconden na het
+     * laatste geziene KoD-pakket, daarna wit (minder afleidend). */
+    if (kiss_rate_blink_ticks > 0)
+        kiss_rate_blink_ticks--;
+
     if (kiss_rate_counter > 0) {
-        attron(COLOR_PAIR(1) | A_BOLD | A_BLINK);
-        mvprintw(14, rpane_start + 1, "RATE KoD  [!]: %'llu", kiss_rate_counter);
-        attroff(A_BLINK);
+        if (kiss_rate_blink_ticks > 0) {
+            attron(COLOR_PAIR(1) | A_BOLD | A_BLINK);
+            mvprintw(14, rpane_start + 1, "RATE KoD  [!]: %'llu", kiss_rate_counter);
+            attroff(A_BLINK);
+        } else {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(14, rpane_start + 1, "RATE KoD  [!]: %'llu", kiss_rate_counter);
+        }
     } else {
         attron(COLOR_PAIR(5));
         mvprintw(14, rpane_start + 1, "RATE KoD     : 0");
@@ -601,6 +643,7 @@ handle_packet(u_char *args,
              memcmp(packet + 12, "RATE", 4) == 0) /* ref ID "RATE" */
         {
             ++kiss_rate_counter;
+            kiss_rate_blink_ticks = KOD_BLINK_TICKS;
         }
         break;
 
