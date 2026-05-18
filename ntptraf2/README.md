@@ -66,3 +66,11 @@ or, for some live data:
 sudo tshark -Y ipv6.dst_sa_mac -Nm -V | grep "Destination SA MAC"
 ```
 Etc.
+
+# NTPtraf3
+Improved NTP Statistics
+
+LLM generated, so I have no clue... ;-)
+
+## screenshot
+![Alt text](/ntptraf2/screenshot3.png?raw=true "Screenshot")
