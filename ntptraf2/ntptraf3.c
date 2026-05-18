@@ -92,9 +92,9 @@ static unsigned long long int ntpv4_counter          = 0;
 static unsigned long long int ntpv5_counter          = 0;
 static unsigned long long int kiss_rate_counter      = 0;
 
-/* Telt hoeveel display-ticks geleden het laatste KoD-pakket gezien werd.
- * Zolang kiss_rate_blink_ticks > 0 knippert de indicator rood;
- * elke tick wordt de teller verlaagd tot 0. */
+/* Counts how many display ticks ago the last KoD packet was seen.
+ * While kiss_rate_blink_ticks > 0 the indicator blinks red;
+ * each tick the counter is decremented until it reaches 0. */
 #define KOD_BLINK_TICKS 3
 static int kiss_rate_blink_ticks = 0;
 static unsigned long long int ntp_client_counter     = 0;
@@ -375,36 +375,36 @@ print_numbers(void)
      * ================================================================
      */
 
-    erase(); /* erase() vermijdt flicker — clear() zou het scherm direct wissen */
+    erase(); /* erase() avoids flicker — clear() would blank the screen immediately */
 
     int mid   = cols / 2;
     int lpane = mid - 1;          /* last col of left panel  (exclusive) */
     int rpane_start = mid + 1;    /* first col of right panel */
 
     /*
-     * IPv4 / IPv6 rijen: tekst in vaste breedte zodat de balk altijd
-     * op dezelfde kolom begint, ongeacht hoe groot het pakketaantal is.
+     * IPv4 / IPv6 rows: text formatted to a fixed width so the bar always
+     * starts at the same column, regardless of how large the packet count is.
      *
-     * Kolom-indeling linker paneel:
-     *   col  2: "IPv4  xx.xx%  avg xxx B  "  — 26 tekens
-     *   col 28: pakketaantal, rechts uitgelijnd in 12 tekens
-     *   col 40: spatie
-     *   col 41: percentagebalk t/m lpane-1
+     * Left panel column layout:
+     *   col  2: "IPv4  xx.xx%  avg xxx B  "  — 26 chars
+     *   col 28: packet count, right-aligned in 12 chars
+     *   col 40: space
+     *   col 41: percentage bar up to lpane-1
      */
     int ltext_end = 41;
     int lbar_w    = lpane - ltext_end - 1;
     if (lbar_w < 4) lbar_w = 4;
 
     /*
-     * Kolom-indeling rechter paneel versierijen:
-     *   rpane_start+1: "NTPvX  " (7) + count (10) + "  xx.xx%%" (9) = 26 tekens
-     *   rpane_start+27: percentagebalk
+     * Right panel version rows column layout:
+     *   rpane_start+1: "NTPvX  " (7) + count (10) + "  xx.xx%%" (9) = 26 chars
+     *   rpane_start+27: percentage bar
      */
     int rtext_end = rpane_start + 27;
     int rbar_w    = cols - rtext_end - 1;
     if (rbar_w < 4) rbar_w = 4;
 
-    /* sparkline afmetingen */
+    /* sparkline dimensions */
     int spark_top    = 8;
     int spark_bottom = rows - 4;
     if (spark_bottom < spark_top + 2) spark_bottom = spark_top + 2;
@@ -512,8 +512,8 @@ print_numbers(void)
     mvprintw(12, rpane_start + 1, "Private/ntpdc(mode 7): %'llu",
               ntp_private_counter);
 
-    /* KoD — knippert rood gedurende KOD_BLINK_TICKS seconden na het
-     * laatste geziene KoD-pakket, daarna wit (minder afleidend). */
+    /* KoD — blinks red for KOD_BLINK_TICKS seconds after the last KoD packet,
+     * then shows white (less distracting). */
     if (kiss_rate_blink_ticks > 0)
         kiss_rate_blink_ticks--;
 
