@@ -1,0 +1,33 @@
+scrape_configs:
+  - job_name: ntp_probe
+    metrics_path: /probe
+    params:
+      module: [ntp]
+    static_configs:
+      - targets:
+          - any.time.nl
+          - ntp1.time.nl
+          - ntp2.time.nl
+          # ... etc.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9116   # adres van deze exporter
+
+  - job_name: nts_probe
+    metrics_path: /probe
+    params:
+      module: [nts]
+    static_configs:
+      - targets:
+          - nts1.time.nl
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9116
