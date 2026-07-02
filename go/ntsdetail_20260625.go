@@ -34,6 +34,14 @@ Options:
   -4              Force IPv4
   -6              Force IPv6
   -json           Emit machine-readable JSON instead of formatted text
+  -assume-compliant-128gcm
+                  Skip AES-128-GCM-SIV compliance negotiation and assume
+                  the server already uses the RFC 8915-compliant key
+                  exporter context (nts.SessionOptions.AssumeCompliant128GCM).
+                  Default is false, which is the safe choice while
+                  non-patched chrony servers (algorithm ID 15 instead of
+                  30) are still in use. See:
+                  https://chrony-project.org/doc/spec/nts-compliant-128gcm.html
 `
 
 // ---------------------------------------------------------------------
@@ -81,6 +89,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON instead of formatted text")
 	ipv4 := flag.Bool("4", false, "force IPv4")
 	ipv6 := flag.Bool("6", false, "force IPv6")
+	assumeCompliant128GCM := flag.Bool("assume-compliant-128gcm", false, "skip AES-128-GCM-SIV compliance negotiation and assume the server is already RFC 8915-compliant")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	flag.Parse()
 
@@ -105,7 +114,7 @@ func main() {
 
 	exitCode := 0
 	for i, host := range hosts {
-		res := query(host, *version, *timeout, family)
+		res := query(host, *version, *timeout, family, *assumeCompliant128GCM)
 		if res.Error != "" {
 			exitCode = 1
 		}
@@ -123,10 +132,13 @@ func main() {
 	os.Exit(exitCode)
 }
 
-func query(host string, version int, timeout time.Duration, family string) Result {
+func query(host string, version int, timeout time.Duration, family string, assumeCompliant128GCM bool) Result {
 	res := Result{Host: host, LocalTime: time.Now()}
 
-	sessOpts := &nts.SessionOptions{Timeout: timeout}
+	sessOpts := &nts.SessionOptions{
+		Timeout:                timeout,
+		AssumeCompliant128GCM:  assumeCompliant128GCM,
+	}
 	queryOpts := &ntp.QueryOptions{Version: version, Timeout: timeout}
 
 	if family != "" {
