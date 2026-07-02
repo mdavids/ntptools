@@ -157,7 +157,7 @@ func query(host string, version int, timeout time.Duration, family string) Resul
 
 	r, err := session.QueryWithOptions(queryOpts)
 	if err != nil {
-		res.Error = fmt.Sprintf("NTP query failed: %v", err)
+		res.Error = fmt.Sprintf("NTP query failed for %s: %v", res.ResolvedNTP, err)
 		return res
 	}
 
