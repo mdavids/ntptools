@@ -22,6 +22,10 @@
 // certificate chain - deliberately named and shaped after blackbox_exporter's
 // probe_ssl_earliest_cert_expiry so existing "metric - time() < threshold"
 // alerting rules work unchanged against this exporter too.
+//
+// *Important* message for amd64 users: read this:
+// https://github.com/beevik/nts/issues/1#issuecomment-4879122150
+//
 package main
 
 import (
