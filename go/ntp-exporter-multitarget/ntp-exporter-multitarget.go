@@ -1,5 +1,5 @@
-// Version: 20260635 - M. Davids, SIDN Labs
-//                     Vibe coded with Claude.ai
+// Version: 2026070301 - M. Davids, SIDN Labs
+//                       Vibe coded with Claude.ai
 //
 // ntp-exporter implements the Prometheus "multi-target exporter" pattern
 // (https://prometheus.io/docs/guides/multi-target-exporter/) for NTP and
