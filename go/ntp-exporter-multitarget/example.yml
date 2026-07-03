@@ -21,6 +21,7 @@ scrape_configs:
     metrics_path: /probe
     params:
       module: [nts]
+      assume_compliant_128gcm: ["true"]
     static_configs:
       - targets:
           - nts1.time.nl
