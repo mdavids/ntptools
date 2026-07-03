@@ -269,7 +269,7 @@ func classifyNTSError(err error) string {
 	case errors.Is(err, nts.ErrAuthFailedOnClient):
 		return "auth_failed_on_client"
 	case errors.Is(err, nts.ErrAuthFailedOnServer):
-		return "auth_failed_on_server"
+		return "auth_failed_on_server (have you tried using the '-assume-compliant-128gcm' option?)"
 	case errors.Is(err, nts.ErrInvalidFormat):
 		return "invalid_format"
 	case errors.Is(err, nts.ErrNoCookies):
