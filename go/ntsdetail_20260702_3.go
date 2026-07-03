@@ -4,6 +4,8 @@
 //
 // Vibe coded improvement of ntsdetail.go - made with Claude.ai
 //
+// Version 20260702_3a
+//
 package main
 
 import (
@@ -321,21 +323,49 @@ func query(host string, o queryOptions) Result {
 	}
 
 	// SessionOptions.Dialer overrides the TLS dial used for the NTS-KE
-	// handshake. We always set it - even without family-forcing - so we
-	// can capture the resulting tls.ConnectionState for reporting below;
-	// the nts library gives no other way to inspect the TLS handshake it
-	// performed. "tcp"+"" is just "tcp", so this is a no-op for the
-	// address-family selection when -4/-6 weren't given.
+	// handshake. We set it to capture the resulting tls.ConnectionState for reporting,
+	// but we must manually enforce the timeout since tls.Dial would bypass it.
 	tcpNetwork := "tcp" + o.family
 	var tlsState *tls.ConnectionState
 	sessOpts.Dialer = func(_, addr string, tlsConfig *tls.Config) (*tls.Conn, error) {
-		conn, err := tls.Dial(tcpNetwork, addr, tlsConfig)
+		// 1. Establish a raw TCP connection using the configured timeout
+		dialer := &net.Dialer{
+			Timeout: o.timeout,
+		}
+		rawConn, err := dialer.Dial(tcpNetwork, addr)
 		if err != nil {
 			return nil, err
 		}
-		state := conn.ConnectionState()
+
+		// 2. Ensure ServerName is set if InsecureSkipVerify is false.
+		// Since we bypass the library's internal tls.Dial, we must populate this manually.
+		if tlsConfig.ServerName == "" && !tlsConfig.InsecureSkipVerify {
+			h, _, err := net.SplitHostPort(addr)
+			if err == nil {
+				tlsConfig.ServerName = h
+			} else {
+				// Fallback to the original host if splitting fails
+				tlsConfig.ServerName = host
+			}
+		}
+
+		// 3. Wrap the raw TCP connection in a TLS client
+		tlsConn := tls.Client(rawConn, tlsConfig)
+
+		// 4. Set a deadline for the TLS handshake and execute it
+		_ = tlsConn.SetDeadline(time.Now().Add(o.timeout))
+		if err := tlsConn.Handshake(); err != nil {
+			rawConn.Close()
+			return nil, err
+		}
+		// Clear the deadline after a successful handshake
+		_ = tlsConn.SetDeadline(time.Time{})
+
+		// 5. Capture the connection state for later reporting
+		state := tlsConn.ConnectionState()
 		tlsState = &state
-		return conn, nil
+
+		return tlsConn, nil
 	}
 
 	keStart := time.Now()
