@@ -25,6 +25,13 @@ import (
 
 const timeFormat = "Mon Jan _2 2006  15:04:05.000000000 (MST)"
 
+// certTimeFormat is used for X.509 certificate validity fields, which
+// per RFC 5280 §4.1.2.5.2 ("GeneralizedTime values MUST NOT include
+// fractional seconds") never carry sub-second precision - unlike the
+// NTP timestamps timeFormat is meant for, so printing nine zeroed
+// fractional digits there would just be false precision.
+const certTimeFormat = "Mon Jan _2 2006  15:04:05 (MST)"
+
 var usage = `Usage: ntsdetail [options] HOST [HOST ...]
 Perform an NTS key exchange with HOST, then query the resulting NTP
 server and report the details of its response.
@@ -484,7 +491,7 @@ func printTLSDetails(res Result) {
 	fmt.Printf("    %-14s %s / %s (ALPN %q)\n", "TLS:", res.TLSVersion, res.TLSCipherSuite, res.TLSALPNProtocol)
 	if res.TLSPeerCertSubject != "" {
 		fmt.Printf("    %-14s %s\n", "PeerCert:", res.TLSPeerCertSubject)
-		fmt.Printf("    %-14s issuer=%s notAfter=%s\n", "", res.TLSPeerCertIssuer, res.TLSPeerCertNotAfter.Format(timeFormat))
+		fmt.Printf("    %-14s issuer=%s notAfter=%s\n", "", res.TLSPeerCertIssuer, res.TLSPeerCertNotAfter.Format(certTimeFormat))
 	}
 }
 
