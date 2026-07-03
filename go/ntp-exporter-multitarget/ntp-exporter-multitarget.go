@@ -10,11 +10,23 @@
 //	GET /probe?target=HOST&module=ntp   - plain NTP query
 //	GET /probe?target=HOST&module=nts   - NTS key exchange + NTP query
 //	GET /probe?target=HOST&module=nts&ip_protocol=4  - force IPv4
+//	GET /probe?target=HOST&module=nts&assume_compliant_128gcm=true
+//	    - skip AES-128-GCM-SIV compliance negotiation for this target,
+//	      overriding the -assume-compliant-128gcm default (nts module
+//	      only; ignored for ntp). See:
+//	      https://chrony-project.org/doc/spec/nts-compliant-128gcm.html
 //	GET /metrics                         - exporter's own health/process metrics
+//
+// The nts module also exposes ntp_nts_cert_expiry_seconds, the Unix
+// timestamp of the earliest expiry across the verified NTS-KE TLS
+// certificate chain - deliberately named and shaped after blackbox_exporter's
+// probe_ssl_earliest_cert_expiry so existing "metric - time() < threshold"
+// alerting rules work unchanged against this exporter too.
 package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,9 +44,10 @@ import (
 )
 
 var (
-	listenAddr     = flag.String("web.listen-address", ":9116", "Address to listen on")
-	defaultTimeout = flag.Duration("timeout", 5*time.Second, "Default probe timeout, used when Prometheus sends no scrape-timeout header")
-	timeoutOffset  = flag.Float64("timeout-offset", 0.5, "Seconds subtracted from the Prometheus scrape timeout to leave room for the response to be delivered")
+	listenAddr            = flag.String("web.listen-address", ":9116", "Address to listen on")
+	defaultTimeout        = flag.Duration("timeout", 5*time.Second, "Default probe timeout, used when Prometheus sends no scrape-timeout header")
+	timeoutOffset         = flag.Float64("timeout-offset", 0.5, "Seconds subtracted from the Prometheus scrape timeout to leave room for the response to be delivered")
+	assumeCompliant128GCM = flag.Bool("assume-compliant-128gcm", false, "Default for the nts module: skip AES-128-GCM-SIV compliance negotiation and assume servers already use the RFC 8915-compliant key exporter context. Overridable per probe via the assume_compliant_128gcm URL parameter. See https://chrony-project.org/doc/spec/nts-compliant-128gcm.html")
 )
 
 // probesTotal is a self-metric (on the default/exporter registry, not the
@@ -58,23 +71,31 @@ func init() {
 // succeeded (could reach the server and parse a response).
 // ---------------------------------------------------------------------
 
-type prober func(target string, registry *prometheus.Registry, timeout time.Duration, family string) bool
+// probeOptions bundles the per-probe knobs so the prober signature
+// doesn't keep growing every time a new option is exposed.
+type probeOptions struct {
+	timeout               time.Duration
+	family                string
+	assumeCompliant128GCM bool
+}
+
+type prober func(target string, registry *prometheus.Registry, opts probeOptions) bool
 
 var modules = map[string]prober{
 	"ntp": probeNTP,
 	"nts": probeNTS,
 }
 
-func probeNTP(target string, registry *prometheus.Registry, timeout time.Duration, family string) bool {
-	opts := ntp.QueryOptions{Version: 4, Timeout: timeout}
-	if family != "" {
-		network := "udp" + family
-		opts.Dialer = func(_, addr string) (net.Conn, error) {
+func probeNTP(target string, registry *prometheus.Registry, opts probeOptions) bool {
+	queryOpts := ntp.QueryOptions{Version: 4, Timeout: opts.timeout}
+	if opts.family != "" {
+		network := "udp" + opts.family
+		queryOpts.Dialer = func(_, addr string) (net.Conn, error) {
 			return net.Dial(network, addr)
 		}
 	}
 
-	r, err := ntp.QueryWithOptions(target, opts)
+	r, err := ntp.QueryWithOptions(target, queryOpts)
 	if err != nil {
 		registerErrorMetric(registry, err)
 		return false
@@ -83,24 +104,63 @@ func probeNTP(target string, registry *prometheus.Registry, timeout time.Duratio
 	return true
 }
 
-func probeNTS(target string, registry *prometheus.Registry, timeout time.Duration, family string) bool {
-	sessOpts := &nts.SessionOptions{Timeout: timeout}
-	queryOpts := &ntp.QueryOptions{Version: 4, Timeout: timeout}
-	if family != "" {
-		tcpNetwork := "tcp" + family
-		udpNetwork := "udp" + family
-		sessOpts.Dialer = func(_, addr string, tlsConfig *tls.Config) (*tls.Conn, error) {
-			return tls.Dial(tcpNetwork, addr, tlsConfig)
-		}
+func probeNTS(target string, registry *prometheus.Registry, opts probeOptions) bool {
+	sessOpts := &nts.SessionOptions{
+		Timeout:               opts.timeout,
+		AssumeCompliant128GCM: opts.assumeCompliant128GCM,
+	}
+	queryOpts := &ntp.QueryOptions{Version: 4, Timeout: opts.timeout}
+	if opts.family != "" {
+		udpNetwork := "udp" + opts.family
 		queryOpts.Dialer = func(_, addr string) (net.Conn, error) {
 			return net.Dial(udpNetwork, addr)
 		}
 	}
 
+	// Always set the Dialer - even without family-forcing - so we can
+	// capture the resulting tls.ConnectionState for the cert-expiry
+	// metric below; the nts library gives no other way to inspect the
+	// TLS handshake it performed. "tcp"+"" is just "tcp", a no-op for
+	// address-family selection when no family override was requested.
+	tcpNetwork := "tcp" + opts.family
+	var tlsState *tls.ConnectionState
+	sessOpts.Dialer = func(_, addr string, tlsConfig *tls.Config) (*tls.Conn, error) {
+		conn, err := tls.Dial(tcpNetwork, addr, tlsConfig)
+		if err != nil {
+			return nil, err
+		}
+		state := conn.ConnectionState()
+		tlsState = &state
+		return conn, nil
+	}
+
+	// Exposed as a metric, not just used internally, so a scrape result
+	// is self-describing: with a per-target URL override in play, you
+	// otherwise can't tell after the fact which mode a given scrape ran
+	// with.
+	assumeCompliantValue := 0.0
+	if opts.assumeCompliant128GCM {
+		assumeCompliantValue = 1.0
+	}
+	newGauge(registry, "ntp_nts_assume_compliant_128gcm", "Whether AES-128-GCM-SIV compliance negotiation was skipped for this probe (1) or performed normally (0)").Set(assumeCompliantValue)
+
 	keStart := time.Now()
 	session, err := nts.NewSessionWithOptions(target, sessOpts)
 	keDuration := time.Since(keStart)
 	newGauge(registry, "ntp_nts_handshake_duration_seconds", "Duration of the NTS-KE handshake in seconds").Set(keDuration.Seconds())
+
+	// Expose the cert-expiry metric whenever we captured a TLS state at
+	// all, regardless of whether the overall probe went on to succeed -
+	// e.g. the TLS handshake can succeed while a later NTS-KE step
+	// fails, and an operator debugging that failure benefits from
+	// seeing "oh, and the cert is also about to expire" without needing
+	// a separate tool.
+	if tlsState != nil {
+		if expiry := earliestCertExpiry(tlsState); !expiry.IsZero() {
+			newGauge(registry, "ntp_nts_cert_expiry_seconds", "Unix timestamp of the earliest expiry across the verified NTS-KE TLS certificate chain").Set(float64(expiry.Unix()))
+		}
+	}
+
 	if err != nil {
 		registerErrorMetric(registry, err)
 		return false
@@ -114,6 +174,31 @@ func probeNTS(target string, registry *prometheus.Registry, timeout time.Duratio
 	}
 	registerResponseMetrics(registry, r)
 	return true
+}
+
+// earliestCertExpiry returns the earliest NotAfter across the verified
+// NTS-KE TLS certificate chain, mirroring blackbox_exporter's
+// "earliest expiry" semantics: an expiring intermediate CA is just as
+// much a problem as an expiring leaf certificate. Prefers the actually
+// verified chain (VerifiedChains) over the raw, unverified certificates
+// the server sent (PeerCertificates), falling back to the latter only
+// if no verified chain is available. Returns the zero Time if neither
+// is present.
+func earliestCertExpiry(state *tls.ConnectionState) time.Time {
+	var earliest time.Time
+	consider := func(certs []*x509.Certificate) {
+		for _, cert := range certs {
+			if earliest.IsZero() || cert.NotAfter.Before(earliest) {
+				earliest = cert.NotAfter
+			}
+		}
+	}
+	if len(state.VerifiedChains) > 0 {
+		consider(state.VerifiedChains[0])
+	} else {
+		consider(state.PeerCertificates)
+	}
+	return earliest
 }
 
 // registerResponseMetrics fills in the metric set shared by both modules -
@@ -222,6 +307,23 @@ func probeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per-target override of the -assume-compliant-128gcm default.
+	// Meaningless for the ntp module, but harmless to accept there too -
+	// rejecting it would just be one more thing a scrape config has to
+	// get exactly right per module.
+	assumeCompliant := *assumeCompliant128GCM
+	switch r.URL.Query().Get("assume_compliant_128gcm") {
+	case "true":
+		assumeCompliant = true
+	case "false":
+		assumeCompliant = false
+	case "":
+		// use the -assume-compliant-128gcm default, as set above
+	default:
+		http.Error(w, "assume_compliant_128gcm must be \"true\" or \"false\"", http.StatusBadRequest)
+		return
+	}
+
 	timeout := *defaultTimeout
 	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
 		if seconds, err := strconv.ParseFloat(v, 64); err == nil {
@@ -237,7 +339,11 @@ func probeHandler(w http.ResponseWriter, r *http.Request) {
 	probeDuration := newGauge(registry, "ntp_probe_duration_seconds", "Duration of the probe in seconds")
 
 	start := time.Now()
-	success := prober(target, registry, timeout, family)
+	success := prober(target, registry, probeOptions{
+		timeout:               timeout,
+		family:                family,
+		assumeCompliant128GCM: assumeCompliant,
+	})
 	probeDuration.Set(time.Since(start).Seconds())
 
 	result := "success"
@@ -256,6 +362,7 @@ func landingPageHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `<html><head><title>NTP/NTS Exporter</title></head><body>
 <h1>NTP/NTS Exporter</h1>
 <p><a href="/probe?target=time.nl&module=ntp">Example: probe time.nl over plain NTP</a></p>
+<p><a href="/probe?target=nts.time.nl&module=nts">Example: probe nts.time.nl over NTS</a></p>
 <p><a href="/metrics">Exporter's own metrics</a></p>
 </body></html>`)
 }
