@@ -1,6 +1,7 @@
 //
 // M. Davids - Vibe coded.
 //
+
 package main
 
 import (
@@ -23,7 +24,7 @@ import (
 )
 
 // Application version number
-const version = "20260704-01"
+const version = "20260705-01"
 
 // NTP constants for manual fast parsing
 const (
@@ -340,27 +341,20 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 		seconds = 1
 	}
 
+	// STEP 1: Aggregate counters and take a basic snapshot (No lookups here!)
 	for _, stats := range m.counts {
 		stats.PPS = (stats.TotalCount - stats.LastCount) / seconds
 		stats.LastCount = stats.TotalCount
 		totalPackets += stats.TotalCount
 
-		// Trigger background queries if needed
-		if *enableDNS || asnDB != nil || geoDB != nil {
-			stats.ResolvedIP, stats.ASNMetadata, stats.GeoMetadata = dnsCache.Lookup(stats.IP)
-		}
-
 		list = append(list, displayRow{
-			IP:          stats.IP,
-			TotalCount:  stats.TotalCount,
-			PPS:         stats.PPS,
-			ResolvedIP:  stats.ResolvedIP,
-			ASNMetadata: stats.ASNMetadata,
-			GeoMetadata: stats.GeoMetadata,
-			// Computed while monitor.mu is still held: see the explanation
-			// on displayRow above.
-			VStr: formatDist(stats.VersionDist, "v"),
-			MStr: formatDist(stats.ModeDist, "m"),
+			IP:         stats.IP,
+			TotalCount: stats.TotalCount,
+			PPS:        stats.PPS,
+			// DNS and MaxMind fields are left empty here;
+			// they will be populated below only for the topN.
+			VStr:       formatDist(stats.VersionDist, "v"),
+			MStr:       formatDist(stats.ModeDist, "m"),
 		})
 	}
 	m.mu.Unlock()
@@ -380,17 +374,16 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 	sort.Slice(list, func(i, j int) bool {
 		if currentSort == SortByTotal {
 			if list[i].TotalCount == list[j].TotalCount {
-				return list[i].IP < list[j].IP // Tie: fall back to sorting by IP
+				return list[i].IP < list[j].IP
 			}
 			return list[i].TotalCount > list[j].TotalCount
 		}
 
-		// If we're sorting by PPS
 		if list[i].PPS == list[j].PPS {
 			if list[i].TotalCount == list[j].TotalCount {
-				return list[i].IP < list[j].IP // Tie on both PPS and total: fall back to IP
+				return list[i].IP < list[j].IP
 			}
-			return list[i].TotalCount > list[j].TotalCount // Tie on PPS: whoever sent more historically wins
+			return list[i].TotalCount > list[j].TotalCount
 		}
 		return list[i].PPS > list[j].PPS
 	})
@@ -398,13 +391,12 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 	// Clear screen via ANSI codes
 	fmt.Print("\033[H\033[2J")
 
-	// Determine the current sort label for the header
+	// Determine the current sort text for the header
 	sortStr := "Packets Per Second (PPS)"
 	if currentSort == SortByTotal {
 		sortStr = "Total Packets"
 	}
 
-	// Determine the MaxMind filter status for the header
 	mmStatusStr := "disabled"
 	if asnDB != nil || geoDB != nil {
 		switch currentMMMode {
@@ -419,39 +411,44 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 		}
 	}
 
-	// Show the header including the version indicator
 	fmt.Printf("NTP Top - %s | Sorting by: %s | MaxMind: %s | v%s\n", time.Now().Format("15:04:05"), sortStr, mmStatusStr, version)
 	fmt.Printf("Interactive Keys: [q]uit | [s]witch sort | [c]lear stats | toggle [d]ns | cycle [m]axmind\n")
 	fmt.Printf("Total Unique Clients: %d | Total Packets: %d\n\n", len(list), totalPackets)
 
-	// Wider columns (16 instead of 12) to keep them from running into each other
 	fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "RANK", "IP ADDRESS / HOSTNAME", "PPS", "TOTAL PKTS", "NTP VERSIONS", "NTP MODES")
 	fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "----", "---------------------", "---", "----------", "------------", "---------")
 
+	// STEP 2: Perform lookups ONLY for the filtered topN
 	for i := 0; i < len(list) && i < topN; i++ {
 		rank := fmt.Sprintf("%d", i+1)
 		ppsStr := fmt.Sprintf("%d/s", list[i].PPS)
 
-		// Determine the base name (IP or hostname)
-		displayTarget := list[i].IP
-		if *enableDNS && currentShowDNS && list[i].ResolvedIP != "" && list[i].ResolvedIP != list[i].IP {
-			displayTarget = list[i].ResolvedIP
+		// Trigger the lookup asynchronously, exclusively for the top 20!
+		var resolvedIP, asnMeta, geoMeta string
+		if *enableDNS || asnDB != nil || geoDB != nil {
+			resolvedIP, asnMeta, geoMeta = dnsCache.Lookup(list[i].IP)
 		}
 
-		// Dynamically assemble the metadata based on the selected rotation state
-		var metaParts []string
-		if (currentMMMode == MMShowBoth || currentMMMode == MMShowGeoOnly) && list[i].GeoMetadata != "" {
-			metaParts = append(metaParts, list[i].GeoMetadata)
+		// Determine the base target (IP or Hostname)
+		displayTarget := list[i].IP
+		if *enableDNS && currentShowDNS && resolvedIP != "" && resolvedIP != list[i].IP {
+			displayTarget = resolvedIP
 		}
-		if (currentMMMode == MMShowBoth || currentMMMode == MMShowASNOnly) && list[i].ASNMetadata != "" {
-			metaParts = append(metaParts, list[i].ASNMetadata)
+
+		// Dynamically assemble metadata based on the selected rotation mode
+		var metaParts []string
+		if (currentMMMode == MMShowBoth || currentMMMode == MMShowGeoOnly) && geoMeta != "" {
+			metaParts = append(metaParts, geoMeta)
+		}
+		if (currentMMMode == MMShowBoth || currentMMMode == MMShowASNOnly) && asnMeta != "" {
+			metaParts = append(metaParts, asnMeta)
 		}
 
 		if len(metaParts) > 0 {
 			displayTarget = fmt.Sprintf("%s %s", displayTarget, strings.Join(metaParts, " "))
 		}
 
-		// Truncate the combined string if it threatens to overrun the column width
+		// Truncate the total string if it exceeds the column width
 		if len(displayTarget) > 39 {
 			displayTarget = displayTarget[:36] + "..."
 		}
