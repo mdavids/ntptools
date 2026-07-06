@@ -24,7 +24,7 @@ import (
 )
 
 // Application version number
-const version = "20260705-01"
+const version = "20260706-01"
 
 // NTP constants for manual fast parsing
 const (
@@ -169,13 +169,22 @@ func main() {
 		defer geoDB.Close()
 	}
 
-	// Start workers if DNS or MaxMind is enabled
+	// Adjust initial MaxMind display mode based on loaded databases
+	mmModeMu.Lock()
+	if asnDB == nil && geoDB == nil {
+		mmMode = MMShowNone
+	} else if asnDB != nil && geoDB == nil {
+		mmMode = MMShowASNOnly
+	} else if asnDB == nil && geoDB != nil {
+		mmMode = MMShowGeoOnly
+	}
+	mmModeMu.Unlock()
+
+	// Start workers permanently (lightweight enough to always run, even if idle)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if *enableDNS || asnDB != nil || geoDB != nil {
-		for i := 0; i < 5; i++ {
-			go dnsWorker(ctx)
-		}
+	for i := 0; i < 5; i++ {
+		go dnsWorker(ctx)
 	}
 
 	// Open pcap handle (256 bytes snaplen is enough for IP + UDP + NTP header)
@@ -277,6 +286,8 @@ func main() {
 				if char == 'd' {
 					displayMu.Lock()
 					showDNS = !showDNS
+					// Dynamically toggle the global flag to allow workers to trigger DNS resolution
+					*enableDNS = showDNS
 					displayMu.Unlock()
 				}
 				if char == 'm' {
@@ -398,7 +409,8 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 	}
 
 	mmStatusStr := "disabled"
-	if asnDB != nil || geoDB != nil {
+	hasMaxMind := asnDB != nil || geoDB != nil
+	if hasMaxMind {
 		switch currentMMMode {
 		case MMShowBoth:
 			mmStatusStr = "ASN+Geo"
@@ -412,11 +424,26 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 	}
 
 	fmt.Printf("NTP Top - %s | Sorting by: %s | MaxMind: %s | v%s\n", time.Now().Format("15:04:05"), sortStr, mmStatusStr, version)
-	fmt.Printf("Interactive Keys: [q]uit | [s]witch sort | [c]lear stats | toggle [d]ns | cycle [m]axmind\n")
+	
+	// Conditionally display the maxmind key option only if databases are available
+	if hasMaxMind {
+		fmt.Printf("Interactive Keys: [q]uit | [s]witch sort | [c]lear stats | toggle [d]ns | cycle [m]axmind\n")
+	} else {
+		fmt.Printf("Interactive Keys: [q]uit | [s]witch sort | [c]lear stats | toggle [d]ns\n")
+	}
 	fmt.Printf("Total Unique Clients: %d | Total Packets: %d\n\n", len(list), totalPackets)
 
-	fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "RANK", "IP ADDRESS / HOSTNAME", "PPS", "TOTAL PKTS", "NTP VERSIONS", "NTP MODES")
-	fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "----", "---------------------", "---", "----------", "------------", "---------")
+	// Determine UI layout based on active display mode
+	// If MaxMind metadata is visible, expand the main target field and drop NTP details
+	isDetailView := hasMaxMind && currentMMMode != MMShowNone
+
+	if isDetailView {
+		fmt.Printf("%-5s%-74s%-10s%-14s\n", "RANK", "IP ADDRESS / HOSTNAME / METADATA", "PPS", "TOTAL PKTS")
+		fmt.Printf("%-5s%-74s%-10s%-14s\n", "----", "--------------------------------", "---", "----------")
+	} else {
+		fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "RANK", "IP ADDRESS / HOSTNAME", "PPS", "TOTAL PKTS", "NTP VERSIONS", "NTP MODES")
+		fmt.Printf("%-5s%-42s%-10s%-14s%-16s%-16s\n", "----", "---------------------", "---", "----------", "------------", "---------")
+	}
 
 	// STEP 2: Perform lookups ONLY for the filtered topN
 	for i := 0; i < len(list) && i < topN; i++ {
@@ -431,7 +458,7 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 
 		// Determine the base target (IP or Hostname)
 		displayTarget := list[i].IP
-		if *enableDNS && currentShowDNS && resolvedIP != "" && resolvedIP != list[i].IP {
+		if currentShowDNS && resolvedIP != "" && resolvedIP != list[i].IP {
 			displayTarget = resolvedIP
 		}
 
@@ -448,13 +475,20 @@ func (m *TrafficMonitor) printTop(topN int, interval time.Duration) {
 			displayTarget = fmt.Sprintf("%s %s", displayTarget, strings.Join(metaParts, " "))
 		}
 
-		// Truncate the total string if it exceeds the column width
-		if len(displayTarget) > 39 {
-			displayTarget = displayTarget[:36] + "..."
+		// Render rows depending on the dynamic column layout layout
+		if isDetailView {
+			// In detail view, truncate only if it exceeds the wide 74-character boundary
+			if len(displayTarget) > 71 {
+				displayTarget = displayTarget[:68] + "..."
+			}
+			fmt.Printf("%-5s%-74s%-10s%-14d\n", rank, displayTarget, ppsStr, list[i].TotalCount)
+		} else {
+			// In standard view, truncate to the original 42-character column width
+			if len(displayTarget) > 39 {
+				displayTarget = displayTarget[:36] + "..."
+			}
+			fmt.Printf("%-5s%-42s%-10s%-14d%-16s%-16s\n", rank, displayTarget, ppsStr, list[i].TotalCount, list[i].VStr, list[i].MStr)
 		}
-
-		// Aligned with the new spacing
-		fmt.Printf("%-5s%-42s%-10s%-14d%-16s%-16s\n", rank, displayTarget, ppsStr, list[i].TotalCount, list[i].VStr, list[i].MStr)
 	}
 }
 
@@ -587,6 +621,7 @@ func dnsWorker(ctx context.Context) {
 			// 2. DNS lookup (if enabled and not yet cached)
 			if !nameExists {
 				resolved := ip
+				// Read pointer directly to ensure dynamic key interaction shifts behaviour
 				if *enableDNS {
 					// Explicit timeout: without this, net.LookupAddr
 					// (especially with the pure-Go resolver on Linux, which
