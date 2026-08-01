@@ -16,5 +16,8 @@
   "drift_model": "random_walk",
   "drift_ppm": 50.0,
   "drift_step_ppm": 50.0,
-  "drift_update_interval_sec": 10 
+  "drift_update_interval_sec": 10,
+  
+  "state_file": "fake-ntpd-state.json",
+  "persist_state": true
 }
